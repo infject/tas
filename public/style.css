@@ -196,11 +196,63 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
 
 /* === RULES SECTION === */
-#rules ul {
+.rules-screen {
+  background: rgba(20, 20, 30, 0.9);
+  color: #f0e6ff;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  max-width: 700px;
+  margin: 2rem auto;
+  box-shadow: 0 0 25px rgba(200, 150, 255, 0.3);
+  text-align: center;
+}
+
+.rules-screen h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  color: #d7bfff;
+}
+
+.rules-screen h2 {
+  color: #a87fff;
+  margin-bottom: 1rem;
+}
+
+.rules-screen ul {
+  list-style: none;
+  padding: 0;
   text-align: left;
-  max-width: 600px;
-  margin: 0 auto;
-  font-size: 0.95em;
+  margin: 0 auto 1rem;
+  max-width: 550px;
+}
+
+.rules-screen ul li {
+  background: rgba(80, 60, 120, 0.3);
+  padding: 0.6rem 1rem;
+  margin: 0.4rem 0;
+  border-radius: 10px;
+}
+
+.rules-screen .start-button {
+  background: linear-gradient(45deg, #7f00ff, #e100ff);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.rules-screen .start-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px #b47bff;
+}
+
+.rules-screen .note {
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-top: 1rem;
 }
 
 /* === TURN INDICATOR === */
@@ -216,3 +268,4 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   #rules ul { font-size: 0.85em; }
   button { font-size: 0.85em; }
 }
+
