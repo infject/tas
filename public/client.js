@@ -174,7 +174,7 @@ function renderHand(hand, isMyTurn) {
       <div class="type">${card.type}</div>
       <h4>${card.name}</h4>
       <p>${card.effect}</p>
-      <div class="resonance">Cost: ${card.cost}</div>
+      <div class="resonance">Cost: ${card.cost}🌀</div>
     `;
     cardDiv.onclick = () => handleCardClick(card, isMyTurn);
     yourHandDiv.appendChild(cardDiv);
@@ -272,3 +272,4 @@ function cancelTargetingIfNeeded(isMyTurn) {
     showMessage("Targeting cancelled (turn changed or card unavailable).");
   }
 }
+
