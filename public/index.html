@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jack Jackson: Resonance Duel 🍻</title>
+<style>
+/* === GLOBAL === */
+html, body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: radial-gradient(circle at center, #0b0b1c 0%, #000 100%);
+  color: #fff;
+  margin: 0; padding: 0;
+  height: 100%;
+  display: flex; flex-direction: column;
+  align-items: center; text-align: center;
+  box-sizing: border-box; overflow: hidden;
+}
+
+h1,h2,h3 { color:#ffd633; margin:4px 0; }
+
+button {
+  margin:3px; padding:6px 10px;
+  border:none; border-radius:8px;
+  background:#ffd633; color:#0b0b1c;
+  font-weight:bold; cursor:pointer;
+  transition:all 0.2s ease;
+}
+button:hover:not(:disabled){transform:scale(1.05);background:#ffed75;}
+button:disabled{opacity:0.6;cursor:not-allowed;}
+
+.hidden{display:none;}
+
+/* === MAIN CONTAINER === */
+#container{width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:8px;box-sizing:border-box;}
+
+/* === HUD / STATS === */
+.hud{
+  background:#1a1a2e; border-radius:12px;
+  box-shadow:0 0 10px rgba(255,214,51,0.2);
+  padding:6px; margin:2px auto; width:95%; max-width:600px; box-sizing:border-box;
+}
+.statBar{
+  background:#333; border-radius:8px; height:14px;
+  margin:3px 0; position:relative; overflow:hidden;
+}
+.barFill{position:absolute;top:0;left:0;height:100%;transition:width 0.3s ease;}
+.resonanceFill{background:#33bbff;width:60%;}
+.stabilityFill{background:#ff5577;width:100%;}
+
+/* === CARDS === */
+.card{
+  background: linear-gradient(135deg,#1a1a2e,#2e2e4e);
+  border:2px solid #ffd633; border-radius:10px;
+  padding:5px; flex:1 1 calc(12% - 6px);
+  max-width:120px; min-width:60px; position:relative;
+  cursor:pointer; transition:transform 0.2s,box-shadow 0.2s;
+  font-size:clamp(0.6em,0.9vw,0.8em);
+}
+.card:hover{transform:scale(1.05);box-shadow:0 0 15px #ffd633;}
+.type,.resonance{position:absolute;background:#ffd633;color:#0b0b1c;padding:2px 4px;border-radius:4px;font-weight:bold;font-size:0.65em;}
+.type{top:3px;right:3px;}
+.resonance{bottom:3px;right:3px;}
+
+/* === PLAYER PANELS === */
+.playerBox{
+  border:2px solid #555;border-radius:8px;
+  padding:4px;background:#1a1a2e;margin:2px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1 1 calc(12% - 6px);max-width:140px;min-width:60px;
+  font-size:clamp(0.55em,0.8vw,0.7em);box-sizing:border-box;
+}
+.highlightTarget{outline:2px solid yellow;box-shadow:0 0 15px yellow;}
+
+/* === GAME AREAS === */
+#yourHand,#tableArea,#otherPlayers{
+  display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:4px;width:100%;min-height:80px;
+}
+
+/* === BUTTON PANEL === */
+#controls{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;}
+
+/* === TOOLTIP === */
+.tooltip{position:relative;display:inline-block;}
+.tooltip .tooltiptext{
+  visibility:hidden;width:200px;background:#333;color:#fff;text-align:center;border-radius:6px;padding:4px;
+  position:absolute;bottom:125%;left:50%;margin-left:-100px;opacity:0;transition:opacity 0.3s;font-size:0.8em;
+}
+.tooltip:hover .tooltiptext{visibility:visible;opacity:1;}
+
+/* === RULES === */
+#rules ul{text-align:left;max-width:600px;margin:0 auto;font-size:0.95em;}
+
+/* === TURN INDICATOR === */
+#turnIndicator{font-weight:bold;color:#33ff77;text-shadow:0 0 5px #33ff77;}
+
+/* === RESPONSIVE === */
+@media(max-width:700px){.card,.playerBox{max-width:90px;}#rules ul{font-size:0.85em;}button{font-size:0.85em;}}
+</style>
+</head>
+<body>
+<div id="container">
+
+<!-- RULES -->
+<div id="rules">
+  <h1>Jack Jackson: Resonance Duel 🍻</h1>
+  <h2>Rules</h2>
+  <ul>
+    <li>💥 Reduce opponent’s Stability to 0!</li>
+    <li>🌀 Resonance = magical energy. ❤️ Stability = health.</li>
+    <li>Drink Potion → take real-life shot (+1 Resonance).</li>
+    <li>Drink responsibly — overloading ends the game!🍻</li>
+    <li>Join/create room with code & password.</li>
+  </ul>
+  <button id="startBtn">Start Game</button>
+</div>
+
+<!-- LOBBY -->
+<div id="lobby" class="hidden">
+  <h2>Lobby</h2>
+  <input id="roomCodeInput" placeholder="Room Code">
+  <input id="passwordInput" type="password" placeholder="Password">
+  <input id="nameInput" placeholder="Your Name"><br>
+  <button id="createBtn">Create Room</button>
+  <button id="joinBtn">Join Room</button>
+  <h3>Available Rooms</h3>
+  <div id="roomList"></div>
+</div>
+
+<!-- GAME -->
+<div id="game" class="hidden">
+  <div id="turnIndicator">Current Turn: --</div>
+  <div class="hud" id="yourStats"></div>
+  <div id="yourHand"></div>
+  <div id="tableArea"></div>
+  <div id="otherPlayers"></div>
+  <div id="controls">
+    <button id="drawBtn">Draw Card</button>
+    <div class="tooltip"><button id="potionBtn">Drink Potion</button>
+      <span class="tooltiptext">Take a real-life shot to gain 1 Resonance</span>
+    </div>
+    <button id="endTurnBtn">End Turn</button>
+  </div>
+</div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="client.js"></script>
+</body>
+</html>
