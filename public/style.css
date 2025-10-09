@@ -355,3 +355,67 @@ ul li::before {
   #yourHand .card { width: 100px; }
   #controls { padding: 6px; gap:6px; }
 }
+
+
+/* === HAND CONTAINMENT & SCROLL FIX PATCH - APPEND START === */
+/* Minimal overrides — do not remove the original rules above.
+   Goal: keep cards constrained inside a centered "hand" area, make cards smaller,
+   disable smooth/snap scrolling (make scrolling "rough"), and improve mobile sizing.
+*/
+
+:root {
+  --hand-center-width: 1000px; /* change this if you want a wider or narrower centered zone */
+  --hand-gap: 14px;
+  --hand-card-percent: 18%;
+  --hand-card-min: 110px;
+  --hand-card-max: 160px;
+}
+
+/* Center and contain the visible hand area (so cards never spill into the dark sides) */
+#yourHand {
+  max-width: var(--hand-center-width);
+  margin: 0 auto;                      /* center the hand area between the vertical lines */
+  padding-inline: 24px;                /* slightly smaller side padding to fit more cards */
+  box-sizing: border-box;
+  overflow-x: auto;                    /* keep horizontal scroll */
+  overflow-y: hidden;
+  scroll-behavior: auto;               /* rough scrolling (no smooth animation) */
+  -webkit-overflow-scrolling: auto;    /* disable iOS momentum scrolling to avoid 'flip back' */
+  scroll-snap-type: none !important;   /* disable snapping so you can reach the true end */
+  overscroll-behavior-x: contain;      /* prevent body bounce on mobile */
+  justify-content: flex-start;         /* left-to-right natural scroll */
+}
+
+/* Make cards smaller so more are visible on the screen at once */
+#yourHand .card {
+  flex: 0 0 var(--hand-card-percent) !important;
+  min-width: var(--hand-card-min) !important;
+  max-width: var(--hand-card-max) !important;
+  scroll-snap-align: none !important;
+  font-size: clamp(0.65em, 1.0vw, 0.85em);
+  padding: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Disable hover scale on touch devices so UI doesn't jump while tapping */
+@media (hover: none) and (pointer: coarse) {
+  #yourHand .card,
+  #yourHand .card:hover { transform: none !important; box-shadow: none !important; }
+}
+
+/* Mobile: show more cards across smaller screens; tweak sizes for readability */
+@media (max-width: 480px) {
+  :root { --hand-center-width: calc(100% - 32px); --hand-card-percent: 22%; --hand-card-min: 80px; --hand-card-max: 140px; }
+  #yourHand { padding-inline: 12px; height: 170px; }
+  #yourHand .card { font-size: 0.78em; }
+}
+
+/* Tablet / narrow desktop */
+@media (max-width: 900px) {
+  :root { --hand-center-width: calc(100% - 48px); --hand-card-percent: 20%; --hand-card-min: 100px; --hand-card-max: 150px; }
+  #yourHand { padding-inline: 16px; height: 200px; }
+}
+
+/* Optional: if you prefer an even tighter center area, reduce --hand-center-width at top */
+/* === HAND CONTAINMENT & SCROLL FIX PATCH - APPEND END === */
+
