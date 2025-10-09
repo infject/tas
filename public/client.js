@@ -169,11 +169,18 @@ function updateYourStats(your) {
   `;
 }
 
-
 function renderHand(hand, isMyTurn) {
-  yourHandDiv.innerHTML = "<h3>Your Hand</h3>";
-  // compact mode when many cards
-  if (hand.length > 8) yourHandDiv.classList.add('compact'); else yourHandDiv.classList.remove('compact');
+  // Clear the container (no title text anymore)
+  yourHandDiv.innerHTML = "";
+
+  // Apply compact style only if needed
+  if (hand.length > 8) yourHandDiv.classList.add('compact');
+  else yourHandDiv.classList.remove('compact');
+
+  // Ensure the scroll container resets position
+  yourHandDiv.scrollLeft = 0;
+
+  // Render each card inside the hand container
   hand.forEach((card, idx) => {
     const cardDiv = document.createElement('div');
     cardDiv.className = 'card';
@@ -184,17 +191,45 @@ function renderHand(hand, isMyTurn) {
       <p>${card.effect}</p>
       <div class="resonance">Cost: ${card.cost}🌀</div>
     `;
-    // add animation class with stagger
+
+    // Animate entry (slightly staggered)
     cardDiv.classList.add('card-anim');
     cardDiv.style.animationDelay = (idx * 60) + 'ms';
-    // click to play or toggle targeting via handleCardClick
+
+    // Card interactivity
     cardDiv.onclick = () => handleCardClick(card, isMyTurn);
-    // enlarge on pointerenter for small screens: add active-scale class on hover/focus
     cardDiv.onpointerenter = () => cardDiv.classList.add('active-scale');
     cardDiv.onpointerleave = () => cardDiv.classList.remove('active-scale');
     cardDiv.onfocus = () => cardDiv.classList.add('active-scale');
     cardDiv.onblur = () => cardDiv.classList.remove('active-scale');
+
     yourHandDiv.appendChild(cardDiv);
+  });
+
+  // === Horizontal drag scroll support ===
+  let isDown = false;
+  let startX;
+  let scrollLeft;
+  yourHandDiv.addEventListener('mousedown', e => {
+    isDown = true;
+    yourHandDiv.classList.add('dragging');
+    startX = e.pageX - yourHandDiv.offsetLeft;
+    scrollLeft = yourHandDiv.scrollLeft;
+  });
+  yourHandDiv.addEventListener('mouseleave', () => {
+    isDown = false;
+    yourHandDiv.classList.remove('dragging');
+  });
+  yourHandDiv.addEventListener('mouseup', () => {
+    isDown = false;
+    yourHandDiv.classList.remove('dragging');
+  });
+  yourHandDiv.addEventListener('mousemove', e => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - yourHandDiv.offsetLeft;
+    const walk = (x - startX) * 1.5; // scroll speed
+    yourHandDiv.scrollLeft = scrollLeft - walk;
   });
 }
 
