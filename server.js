@@ -1,19 +1,24 @@
-// server.js — full version with proper potion handling + drinkCount
+// server.js — full version with proper static path + potion handling
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
-const { cards } = require('./cards'); // make sure your cards.js exports 'cards'
-
+const { cards } = require('./cards');
+const fetch = require('node-fetch');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static('public'));
+// ✅ Serve static files from /public
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ✅ Serve index.html at root
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 const rooms = {};
-
-const fetch = require("node-fetch");
 
 // Health check route
 app.get("/health", (req, res) => {
