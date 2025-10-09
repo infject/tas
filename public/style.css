@@ -11,8 +11,25 @@ html, body {
   align-items: center;
   text-align: center;
   box-sizing: border-box;
-  overflow: hidden;
+ /*  overflow: hidden;*/
+ overflow-x: hidden; /* ✅ Only hide horizontal scroll, allow vertical scroll */
 }
+
+
+/* Hide scrollbar visually but keep scroll functionality */
+html, body {
+  scrollbar-width: none; /* Firefox */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent; /* Chrome, Safari */
+}
+
+
+
 
 h1, h2, h3 {
   color: #ffd633;
@@ -180,7 +197,19 @@ ul li::before {
   height: 230px; 
 }
 
-/* Gold scrollbar */
+
+/* Hide scrollbar to the cards but keep smooth horizontal scroll */
+#yourHand {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+#yourHand::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
+}
+
+
+
+/* Gold scrollbar 
 #yourHand::-webkit-scrollbar {
   height: 10px;
   background-color: rgba(255,255,255,0.05);
@@ -197,7 +226,7 @@ ul li::before {
   background: rgba(255,255,255,0.08);
   border-radius: 6px;
 }
-
+*/
 
 #yourHand::before {
   left: 0;
