@@ -12,6 +12,18 @@ app.use(express.static('public'));
 
 const rooms = {};
 
+const fetch = require("node-fetch");
+
+// Health check route
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+});
+
+// Keep-alive ping every 5 minutes
+setInterval(() => {
+  fetch(`http://localhost:${PORT}/health`).catch(() => {});
+}, 5 * 60 * 1000);
+
 // server-side config
 const DRAW_COST = 1; // resonance cost to draw extra card
 
