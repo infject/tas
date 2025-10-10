@@ -211,19 +211,19 @@ ul li::before {
 
 
 /* Gold scrollbar */
-#yourHand::-webkit-scrollbar {
+#yourHand::-webkit-scrollbar, #otherPlayers::-webkit-scrollbar {
   height: 10px;
   background-color: rgba(255,255,255,0.05);
   border-radius: 6px;
 }
-#yourHand::-webkit-scrollbar-thumb {
+#yourHand::-webkit-scrollbar-thumb, #otherPlayers::-webkit-scrollbar-thumb {
   background: linear-gradient(90deg, #ffd633, #ffed75);
   border-radius: 6px;
 }
-#yourHand::-webkit-scrollbar-thumb:hover {
+#yourHand::-webkit-scrollbar-thumb:hover, #otherPlayers::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(90deg, #ffed75, #fff0a3);
 }
-#yourHand::-webkit-scrollbar-track {
+#yourHand::-webkit-scrollbar-track, #otherPlayers::-webkit-scrollbar-track {
   background: rgba(255,255,255,0.08);
   border-radius: 6px;
 }
