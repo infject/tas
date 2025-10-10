@@ -395,13 +395,8 @@ ul li::before {
   scroll-snap-type: none !important;
   overscroll-behavior-x: contain;
 
-  /* === Hide scrollbar visually === */
-  -ms-overflow-style: none;  /* IE / Edge */
-  scrollbar-width: none;     /* Firefox */
 }
-#yourHand::-webkit-scrollbar {
-  display: none;             /* Chrome / Safari / Opera */
-}
+
 
 /* === Card layout === */
 #yourHand .card {
