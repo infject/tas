@@ -42,6 +42,18 @@ messageDiv.style.cssText = `
 `;
 document.body.appendChild(messageDiv);
 
+
+// --- Mobile View Reset Helper ---
+function resetMobileView() {
+  if (window.innerWidth <= 768 && window.matchMedia("(orientation: portrait)").matches) {
+    document.body.style.zoom = "100%";
+    document.body.style.transform = "scale(1)";
+    document.body.style.transformOrigin = "0 0";
+    window.scrollTo(0, 0);
+    setTimeout(() => window.scrollTo(0, 0), 150);
+  }
+}
+window.matchMedia("(orientation: portrait)").addEventListener("change", resetMobileView);
 // --- State ---
 let currentRoom = null;
 let selectedCard = null;
