@@ -279,8 +279,8 @@ ul li::before {
   overflow-y: hidden;
   scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  scrollbar-color: #ffd633 rgba(255,255,255,0.05);
+ scrollbar-width: thin;
+scrollbar-color: #ffd633 rgba(255,255,255,0.05);
   overscroll-behavior-x: contain;
 
   /* Prevent container from expanding */
