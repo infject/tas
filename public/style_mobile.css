@@ -1,0 +1,71 @@
+/* === MOBILE-ONLY STYLESHEET (PORTRAIT MODE) === */
+/* Applies only on screens ≤768px wide and in portrait orientation */
+
+@media screen and (max-width: 768px) and (orientation: portrait) {
+
+  /* === HAND AREA === */
+  #yourHand {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 10px;
+
+    width: 100%;
+    height: 220px;
+    padding-block: 40px;
+    padding-inline: 0;
+    box-sizing: border-box;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: auto !important;
+    -webkit-overflow-scrolling: auto !important;
+    overscroll-behavior-x: contain;
+
+    border-left: 40px solid rgba(255, 214, 51, 0);
+    border-right: 40px solid rgba(255, 204, 2, 0);
+
+    position: relative;
+    z-index: 3;
+  }
+
+  /* Hide scrollbar visually */
+  #yourHand::-webkit-scrollbar { display: none; }
+  #yourHand { scrollbar-width: none; -ms-overflow-style: none; }
+
+  /* === CARD STYLING === */
+  #yourHand .card {
+    flex: 0 0 calc(25% - 5px); /* exactly 4 visible cards */
+    min-width: 90px;
+    max-width: 120px;
+    height: auto;
+    margin-inline: 2px;
+    padding: 6px 8px;
+    font-size: clamp(0.7em, 2.6vw, 0.9em);
+    line-height: 1.2em;
+    word-wrap: break-word;
+    white-space: normal;
+    color: #fff;
+    background: linear-gradient(135deg, #1a1a2e, #2e2e4e);
+    border: 2px solid #ffd633;
+    border-radius: 10px;
+    transition: transform 0.35s cubic-bezier(.2,.8,.4,1), box-shadow 0.35s ease;
+  }
+
+  #yourHand .card:hover {
+    transform: translateY(-15px) scale(1.1);
+    box-shadow: 0 0 18px 4px rgba(255,214,51,0.6);
+  }
+
+  /* === TEXT + BUTTON SCALING === */
+  h1, h2, h3 {
+    font-size: clamp(1em, 5vw, 1.5em);
+  }
+  button {
+    font-size: clamp(0.8em, 3.5vw, 1em);
+    padding: 6px 10px;
+  }
+
+}
