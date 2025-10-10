@@ -31,7 +31,7 @@
   #yourHand::before,
   #yourHand::after {
     content: "";
-    flex: 0 0 5vw;
+    flex: 0 0 25vw;
   }
 
   #yourHand .card {
@@ -63,7 +63,7 @@
   #otherPlayers::before,
   #otherPlayers::after {
     content: "";
-    flex: 0 0 5vw;
+    flex: 0 0 25vw;
   }
 
   #otherPlayers .playerBox {
