@@ -16,7 +16,7 @@
   #yourHand {
     position: relative !important;
     width: 100vw !important;
-    min-width: 500vw !important; /* ✅ forces slight overflow so scroll always works */
+    min-width: 110vw !important; /* ✅ forces slight overflow so scroll always works */
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
