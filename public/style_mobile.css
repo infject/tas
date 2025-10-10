@@ -1,5 +1,6 @@
-/* === style_mobile.css - final mobile portrait version (matching hand + players) === */
+/* === style_mobile.css - Final mobile portrait version with correct scrolling and start alignment === */
 @media screen and (max-width: 768px) and (orientation: portrait) {
+
   html, body {
     overflow-y: auto !important;
     overflow-x: hidden !important;
@@ -14,12 +15,22 @@
   /* === Player Hand (cards) === */
   #yourHand {
     width: 100vw !important;
-    padding-inline: 0 !important;
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
     align-items: flex-end !important;
+    flex-wrap: nowrap !important;
     box-sizing: border-box !important;
+
+    /* ✅ keeps first and last cards visible */
+    padding-left: 4vw !important;
+    padding-right: 4vw !important;
+    scroll-padding-left: 4vw !important;
+    scroll-padding-right: 4vw !important;
+
+    /* smooth mobile touch scroll */
+    scroll-behavior: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
   #yourHand .card {
@@ -33,16 +44,24 @@
     max-width: 90vw !important;
   }
 
-  /* === Other Players (same scroll logic as cards) === */
+  /* === Other Players (identical scroll behavior) === */
   #otherPlayers {
     width: 100vw !important;
-    padding-inline: 0 !important;
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
     align-items: flex-start !important;
     flex-wrap: nowrap !important;
     box-sizing: border-box !important;
+
+    /* ✅ prevent first player from starting off-screen */
+    padding-left: 4vw !important;
+    padding-right: 4vw !important;
+    scroll-padding-left: 4vw !important;
+    scroll-padding-right: 4vw !important;
+
+    scroll-behavior: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
   #otherPlayers .playerBox {
