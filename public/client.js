@@ -126,21 +126,6 @@ socket.on('roomList', rooms => {
   });
 });
 
-// Transition from lobby to game
-document.getElementById("lobby").classList.add("hidden");
-document.getElementById("game").classList.remove("hidden");
-
-// 🪄 Enable gameplay scroll lock
-document.body.classList.add("game-active");
-
-// 🪄 iOS Safari zoom fix
-if (window.innerWidth < 768) {
-  document.body.style.zoom = "100%";
-  document.body.style.transform = "scale(1)";
-  document.body.style.transformOrigin = "0 0";
-  window.scrollTo(0, 0);
-  setTimeout(() => window.scrollTo(0, 0), 200);
-}
 
 // --- Game Updates ---
 socket.on('update', data => {
