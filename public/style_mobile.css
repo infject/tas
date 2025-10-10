@@ -1,4 +1,4 @@
-/* === style_mobile.css - clean mobile portrait fix === */
+/* === style_mobile.css - corrected mobile portrait scroll alignment fix === */
 @media screen and (max-width: 768px) and (orientation: portrait) {
 
   html, body {
@@ -24,19 +24,21 @@
     box-sizing: border-box !important;
     scroll-behavior: smooth !important;
     -webkit-overflow-scrolling: touch !important;
+    gap: 0 !important;
+    padding-inline: 0 !important;
+    margin-inline: 0 !important;
 
     /* hide scrollbar */
     scrollbar-width: none !important;
   }
-  #yourHand::-webkit-scrollbar {
-    display: none !important;
-  }
+  #yourHand::-webkit-scrollbar { display: none !important; }
 
-  /* cards fill width — 4 per view */
+  /* exactly 4 cards fit, touching edges */
   #yourHand .card {
     flex: 0 0 25vw !important;
     min-width: 25vw !important;
     max-width: 25vw !important;
+    margin: 0 !important;
   }
 
   .hud {
@@ -55,16 +57,18 @@
     box-sizing: border-box !important;
     scroll-behavior: smooth !important;
     -webkit-overflow-scrolling: touch !important;
+    gap: 0 !important;
+    padding-inline: 0 !important;
+    margin-inline: 0 !important;
 
     scrollbar-width: none !important;
   }
-  #otherPlayers::-webkit-scrollbar {
-    display: none !important;
-  }
+  #otherPlayers::-webkit-scrollbar { display: none !important; }
 
   #otherPlayers .playerBox {
     flex: 0 0 32vw !important;
     min-width: 32vw !important;
     max-width: 32vw !important;
+    margin: 0 !important;
   }
 }
