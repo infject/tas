@@ -46,8 +46,8 @@
     padding-inline: 0;
 
     /* transparent "gutters" (keeps cards visually centered inside the yellow lines) */
-    border-left: 40px solid rgba(255,214,51,0);
-    border-right: 40px solid rgba(255,204,2,0);
+    border-left: 330px solid rgba(255,214,51,0);
+    border-right: 330px solid rgba(255,204,2,0);
 
     /* scrolling behavior */
     overflow-x: auto;
