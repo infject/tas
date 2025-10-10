@@ -297,13 +297,13 @@ if (historyBtn && historyPanel && closeHistoryBtn) {
 }
 
 function renderOtherPlayers(players, turnId) {
-  otherPlayersDiv.innerHTML = "<h3>Other Players</h3>";
+  otherPlayersDiv.innerHTML = "";
 
   const playersCount = Object.keys(players).length;
   if (playersCount > 4) otherPlayersDiv.classList.add('compact'); else otherPlayersDiv.classList.remove('compact');
 
 
-  otherPlayersDiv.innerHTML = "<h3>Other Players</h3>";
+  otherPlayersDiv.innerHTML = "";
 
   Object.entries(players).forEach(([id, p]) => {
     const div = document.createElement('div');
