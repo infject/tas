@@ -1,9 +1,32 @@
-/* === MOBILE-ONLY STYLESHEET (PORTRAIT MODE) === */
-/* Applies only on screens ≤768px wide and in portrait orientation */
+
+/* === style_mobile.css ===
+   Mobile-only (portrait) stylesheet for Jack Jackson: Resonance Duel
+   Purpose: make the hand fill the phone width and show exactly 4 cards at once.
+   Activate via: <link rel="stylesheet" href="style_mobile.css" media="(max-width:768px) and (orientation:portrait)">
+*/
 
 @media screen and (max-width: 768px) and (orientation: portrait) {
 
-  /* === HAND AREA === */
+  /* Prevent page-level scrolling on mobile so only the card hand scrolls horizontally */
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden !important;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Constrain main container to viewport */
+  #container {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* === Hand viewport ===
+     - full device width, transparent side "gutters" to mimic your inspector look
+     - exact 4 cards visible across the width
+     - only this element scrolls horizontally
+  */
   #yourHand {
     display: flex;
     flex-direction: row;
@@ -12,60 +35,128 @@
     align-items: flex-end;
     gap: 10px;
 
+    /* full width viewport on phones */
     width: 100%;
-    height: 220px;
-    padding-block: 40px;
-    padding-inline: 0;
+    max-width: 100%;
+    min-width: 100%;
+    height: 220px;                /* fixed height for consistent look on phones */
+    margin: 0 auto;
     box-sizing: border-box;
+    padding-block: 32px;
+    padding-inline: 0;
 
+    /* transparent "gutters" (keeps cards visually centered inside the yellow lines) */
+    border-left: 40px solid rgba(255,214,51,0);
+    border-right: 40px solid rgba(255,204,2,0);
+
+    /* scrolling behavior */
     overflow-x: auto;
     overflow-y: hidden;
-    scroll-behavior: auto !important;
+    scroll-behavior: auto !important;        /* rough scroll to avoid snap/flip */
     -webkit-overflow-scrolling: auto !important;
     overscroll-behavior-x: contain;
 
-    border-left: 40px solid rgba(255, 214, 51, 0);
-    border-right: 40px solid rgba(255, 204, 2, 0);
-
     position: relative;
     z-index: 3;
+
+    /* hide native scrollbars visually */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  #yourHand::-webkit-scrollbar { display: none; }
+
+  /* === card sizing: exactly 4 visible cards across the available content width ===
+     Calculation explanation:
+       - device content width = 100%
+       - subtract side-borders (40px + 40px = 80px)
+       - subtract total gaps between 4 items (3 * gap = 30px)
+       - divide remaining by 4
+  */
+  :root {
+    --mobile-side-borders: 80px; /* 40 + 40 */
+    --mobile-gap: 10px;
+    --mobile-cards-visible: 4;
   }
 
-  /* Hide scrollbar visually */
-  #yourHand::-webkit-scrollbar { display: none; }
-  #yourHand { scrollbar-width: none; -ms-overflow-style: none; }
-
-  /* === CARD STYLING === */
   #yourHand .card {
-    flex: 0 0 calc(25% - 5px); /* exactly 4 visible cards */
-    min-width: 90px;
+    flex: 0 0 calc((100% - var(--mobile-side-borders) - ((var(--mobile-cards-visible) - 1) * var(--mobile-gap))) / var(--mobile-cards-visible));
+    min-width: 88px;
     max-width: 120px;
-    height: auto;
-    margin-inline: 2px;
+    margin: 0; /* gap handles spacing */
     padding: 6px 8px;
-    font-size: clamp(0.7em, 2.6vw, 0.9em);
-    line-height: 1.2em;
-    word-wrap: break-word;
+    box-sizing: border-box;
+    height: calc(100% - 32px); /* allow internal vertical padding */
+    font-size: clamp(0.72em, 2.6vw, 0.9em);
+    line-height: 1.15;
+    word-break: break-word;
     white-space: normal;
-    color: #fff;
-    background: linear-gradient(135deg, #1a1a2e, #2e2e4e);
-    border: 2px solid #ffd633;
-    border-radius: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
     transition: transform 0.35s cubic-bezier(.2,.8,.4,1), box-shadow 0.35s ease;
   }
 
+  /* Slightly reduce hover scale on touch devices to avoid big jumps */
   #yourHand .card:hover {
-    transform: translateY(-15px) scale(1.1);
-    box-shadow: 0 0 18px 4px rgba(255,214,51,0.6);
+    transform: translateY(-12px) scale(1.08);
+    box-shadow: 0 0 16px 3px rgba(255,214,51,0.55);
+    z-index: 40;
   }
 
-  /* === TEXT + BUTTON SCALING === */
-  h1, h2, h3 {
-    font-size: clamp(1em, 5vw, 1.5em);
+  /* Make sure card internal labels don't overflow */
+  #yourHand .card .type,
+  #yourHand .card .resonance {
+    font-size: 0.7em;
+    padding: 2px 5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Ensure first card is always reachable at scroll start */
+  /* scroll-padding-left ensures programs using snap/scrollIntoView align content; safe to include */
+  #yourHand { scroll-padding-inline-start: 0; scroll-padding-inline-end: 0; }
+
+  /* HUD & controls tweaks for mobile */
+  .hud {
+    width: calc(100% - 24px);
+    margin: 8px auto;
+    padding: 8px;
+    max-width: none;
+  }
+  #controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px;
   }
   button {
-    font-size: clamp(0.8em, 3.5vw, 1em);
-    padding: 6px 10px;
+    padding: 8px 10px;
+    font-size: clamp(0.85em, 3.5vw, 1em);
+    border-radius: 8px;
   }
 
+  /* Minor heading/font scale */
+  h1, h2, h3 { font-size: clamp(1rem, 5.0vw, 1.5rem); }
+
+  /* If you have visual gradients on #yourHand::before / ::after, keep them small and non-blocking */
+  #yourHand::before, #yourHand::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    pointer-events: none;
+  }
+
+  /* Optional: ensure other regions don't allow accidental scroll */
+  #game, #otherPlayers, .history-panel { touch-action: none; }
 }
+
+/* End of mobile portrait stylesheet */
