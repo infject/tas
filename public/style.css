@@ -384,8 +384,8 @@ ul li::before {
   /* === Transparent visual frame === */
   padding-block: 6px;
   padding-inline: 0;
-  border-left: 300px solid rgba(255, 214, 51, 0);
-  border-right: 300px solid rgba(255, 204, 2, 0);
+  border-left: 180px solid rgba(255, 214, 51, 0);
+  border-right: 180px solid rgba(255, 204, 2, 0);
 
   /* === Scroll behavior === */
   overflow-x: auto;
