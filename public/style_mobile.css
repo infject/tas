@@ -1,4 +1,4 @@
-/* === style_mobile.css - corrected mobile portrait scroll alignment fix === */
+/* === style_mobile.css - mobile portrait tuned for proper scroll and spacing === */
 @media screen and (max-width: 768px) and (orientation: portrait) {
 
   html, body {
@@ -12,11 +12,12 @@
     max-width: 100vw !important;
   }
 
-  /* === HAND CARDS === */
+  /* === Card hand === */
   #yourHand {
+    position: relative !important;
     width: 100vw !important;
+    min-width: 110vw !important; /* ✅ forces slight overflow so scroll always works */
     overflow-x: auto !important;
-    overflow-y: hidden !important;
     display: flex !important;
     justify-content: flex-start !important;
     align-items: flex-end !important;
@@ -24,21 +25,19 @@
     box-sizing: border-box !important;
     scroll-behavior: smooth !important;
     -webkit-overflow-scrolling: touch !important;
-    gap: 0 !important;
-    padding-inline: 0 !important;
-    margin-inline: 0 !important;
-
-    /* hide scrollbar */
-    scrollbar-width: none !important;
   }
-  #yourHand::-webkit-scrollbar { display: none !important; }
 
-  /* exactly 4 cards fit, touching edges */
+  /* ✅ Add left/right buffer so cards never start off-screen */
+  #yourHand::before,
+  #yourHand::after {
+    content: "";
+    flex: 0 0 5vw;
+  }
+
   #yourHand .card {
-    flex: 0 0 25vw !important;
-    min-width: 25vw !important;
-    max-width: 25vw !important;
-    margin: 0 !important;
+    flex: 0 0 34vw !important; /* ✅ show ~3 full cards, scroll for more */
+    min-width: 34vw !important;
+    max-width: 34vw !important;
   }
 
   .hud {
@@ -46,29 +45,30 @@
     max-width: 90vw !important;
   }
 
-  /* === OTHER PLAYERS === */
+  /* === Other players === */
   #otherPlayers {
+    position: relative !important;
     width: 100vw !important;
+    min-width: 110vw !important; /* ✅ same scroll behavior for players */
     overflow-x: auto !important;
     display: flex !important;
-    flex-wrap: nowrap !important;
     justify-content: flex-start !important;
     align-items: flex-start !important;
+    flex-wrap: nowrap !important;
     box-sizing: border-box !important;
     scroll-behavior: smooth !important;
     -webkit-overflow-scrolling: touch !important;
-    gap: 0 !important;
-    padding-inline: 0 !important;
-    margin-inline: 0 !important;
-
-    scrollbar-width: none !important;
   }
-  #otherPlayers::-webkit-scrollbar { display: none !important; }
+
+  #otherPlayers::before,
+  #otherPlayers::after {
+    content: "";
+    flex: 0 0 5vw;
+  }
 
   #otherPlayers .playerBox {
-    flex: 0 0 32vw !important;
-    min-width: 32vw !important;
-    max-width: 32vw !important;
-    margin: 0 !important;
+    flex: 0 0 39vw !important;
+    min-width: 39vw !important;
+    max-width: 39vw !important;
   }
 }
