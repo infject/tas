@@ -35,9 +35,9 @@
   }
 
   #yourHand .card {
-    flex: 0 0 34vw !important; /* ✅ show ~3 full cards, scroll for more */
-    min-width: 34vw !important;
-    max-width: 34vw !important;
+    flex: 0 0 30vw !important; /* ✅ show ~3 full cards, scroll for more */
+    min-width: 30vw !important;
+    max-width: 30vw !important;
   }
 
   .hud {
@@ -67,8 +67,8 @@
   }
 
   #otherPlayers .playerBox {
-    flex: 0 0 39vw !important;
-    min-width: 39vw !important;
-    max-width: 39vw !important;
+    flex: 0 0 35vw !important;
+    min-width: 35vw !important;
+    max-width: 35vw !important;
   }
 }
