@@ -15,8 +15,8 @@
   /* === Card hand === */
   #yourHand {
     position: relative !important;
-    width: 100vw !important;
-    min-width: 110vw !important; /* ✅ forces slight overflow so scroll always works */
+    width: 200vw !important;
+    min-width: 210vw !important; /* ✅ forces slight overflow so scroll always works */
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
