@@ -17,4 +17,21 @@
   }
   #yourHand .card { flex: 0 0 22vw !important; min-width: 22vw !important; max-width: 22vw !important; }
   .hud { width: 90vw !important; max-width: 90vw !important; }
+
+ #otherPlayers {
+    width: 100vw !important;
+    padding-inline: 0 !important;
+    overflow-x: auto !important;
+    border-left: 180px solid rgba(255, 214, 51, 0) !important;
+    border-right: 180px solid rgba(255, 204, 2, 0) !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+  }
+  #otherPlayers .playerBox {
+    flex: 0 0 28vw !important;
+    min-width: 28vw !important;
+    max-width: 28vw !important;
+  }
+
+  
 }
