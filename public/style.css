@@ -417,3 +417,10 @@ ul li::before {
 }
 
 /* === END FINAL HAND WIDTH FIX + TRANSPARENT BORDER PATCH V6 === */
+
+
+/* === GAME SCROLL LOCK === */
+body.game-active {
+  overflow: hidden !important;
+  touch-action: none;
+}
