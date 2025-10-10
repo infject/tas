@@ -259,12 +259,46 @@ ul li::before {
 /* === OTHER PLAYERS === */
 #otherPlayers {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  padding: 8px;
-  width: 100%;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 14px;
+
+  /* Fixed frame with transparent borders */
+  padding-block: 24px;
+  padding-inline: 0;
+  width: 960px;
+  max-width: 960px;
+  min-width: 960px;
+  border-left: 180px solid rgba(255, 214, 51, 0);
+  border-right: 180px solid rgba(255, 204, 2, 0);
+
+  /* Scrolling behavior */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scrollbar-color: #ffd633 rgba(255,255,255,0.05);
+  overscroll-behavior-x: contain;
+
+  /* Prevent container from expanding */
+  flex-shrink: 0;
   box-sizing: border-box;
+  position: relative;
+  z-index: 3;
+}
+
+#otherPlayers::-webkit-scrollbar {
+  display: none;
+}
+
+#otherPlayers .playerBox {
+  flex: 0 0 22%;
+  min-width: 160px;
+  max-width: 180px;
+  scroll-snap-align: start;
 }
 #otherPlayers.compact .playerBox {
   width: 100px;
