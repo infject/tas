@@ -336,11 +336,12 @@ function handleCardClick(card, isMyTurn) {
 
   if (card.cost > latestYourData.resonance) return showMessage("Not enough resonance!");
 
-  const targetRequired = [
-    "Echo Drain", "Layer Shift", "Timeline Lock", "Disarmonia Attack",
-    "Unseen Echo", "Anchor Stone", "Frequency Swap", "Collapse",
-    "Echo Trap", "Layer Fusion", "Dissolve"
-  ];
+const targetRequired = [
+  "Echo Drain", "Layer Shift", "Timeline Lock", "Disarmonia Attack",
+  "Unseen Echo", "Anchor Stone", "Collapse", "Echo Trap",
+  "Layer Fusion", "Dissolve", "Resonance Burst", "Spectral Break",
+  "Overtone Slash", "Mind Fracture", "Void Torrent"
+];
 
   if (targetRequired.includes(card.name)) {
     selectedCard = card;
