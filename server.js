@@ -297,25 +297,41 @@ io.on('connection', socket => {
       return socket.emit('errorMessage', 'Room is full. Please join another or create a new one.');
     }
 
-    // --- Reconnect logic: try to find disconnected player with same name ---
-    const existingId = Object.keys(room.players).find(id => {
-      const p = room.players[id];
-      return p && p.name === playerName && p.disconnected;
-    });
-    if (existingId) {
-      const existing = room.players[existingId];
-      existing.disconnected = false;
-      existing.id = socket.id;
-      room.players[socket.id] = existing;
-      delete room.players[existingId];
-      room.order = room.order.map(id => (id === existingId ? socket.id : id));
-      socket.join(roomCode);
-      socket.emit('roomJoined', roomCode);
-      io.to(roomCode).emit('info', `${playerName} has reconnected.`);
-      updateRoom(roomCode);
-      io.emit('roomList', getRoomList());
-      return;
+   // --- Reconnect logic: try to find disconnected player with same name and restore them ---
+const existingId = Object.keys(room.players).find(id => {
+  const p = room.players[id];
+  return p && p.name === playerName && p.disconnected;
+});
+
+if (existingId) {
+  const existing = room.players[existingId];
+  const disconnectedDuration = Date.now() - (existing.disconnectedAt || 0);
+
+  // Restore player slot
+  existing.disconnected = false;
+  existing.id = socket.id;
+  room.players[socket.id] = existing;
+  delete room.players[existingId];
+  room.order = room.order.map(id => (id === existingId ? socket.id : id));
+  socket.join(roomCode);
+
+  // If disconnected more than 2 minutes, rebuild a fresh hand
+  if (disconnectedDuration > 2 * 60 * 1000) {
+    io.to(roomCode).emit('info', `${playerName} has reconnected after 2 minutes — refreshing hand.`);
+    existing.hand = [];
+    for (let i = 0; i < 4; i++) {
+      const c = drawCard(room, socket.id, roomCode);
+      if (!c) break;
     }
+  } else {
+    io.to(roomCode).emit('info', `${playerName} has reconnected with their original hand.`);
+  }
+
+  socket.emit('roomJoined', roomCode);
+  updateRoom(roomCode);
+  io.emit('roomList', getRoomList());
+  return;
+}
 
     // Normal join: create new player
     room.players[socket.id] = {
