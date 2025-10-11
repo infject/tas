@@ -392,21 +392,38 @@ io.on('connection', socket => {
   });
 
   // --- Disconnect ---
-  socket.on('disconnect', () => {
-    for (const roomCode in rooms) {
-      const room = rooms[roomCode];
-      if (room.players[socket.id]) {
-        delete room.players[socket.id];
-        room.order = room.order.filter(id => id !== socket.id);
-        if (Object.keys(room.players).length === 0) delete rooms[roomCode];
-        else {
-          room.turnIndex = room.turnIndex % room.order.length;
-          updateRoom(roomCode);
-        }
-      }
+socket.on('disconnect', () => {
+  for (const roomCode in rooms) {
+    const room = rooms[roomCode];
+    const player = room.players[socket.id];
+    if (!player) continue;
+
+    io.to(roomCode).emit('info', `${player.name} has disconnected — their cards return to the deck.`);
+
+    // Move their hand and any other cards back into the discard pile
+    if (player.hand && player.hand.length > 0) {
+      room.discard.push(...player.hand);
+      player.hand = [];
     }
-    io.emit('roomList', getRoomList());
-  });
+
+    // Mark player as dead/inactive, but keep in order so we don't crash turn logic
+    player.alive = false;
+    player.disconnected = true;
+
+    // If it was their turn, advance immediately
+    const wasTheirTurn = room.order[room.turnIndex] === socket.id;
+    if (wasTheirTurn) {
+      io.to(roomCode).emit('info', `Skipping ${player.name}'s turn due to disconnection.`);
+      advanceTurn(roomCode);
+    }
+
+    // Optional: if you want to remove them completely, uncomment:
+    // delete room.players[socket.id];
+    // room.order = room.order.filter(id => id !== socket.id);
+  }
+
+  io.emit('roomList', getRoomList());
+});
 });
 
 const PORT = process.env.PORT || 3001;
