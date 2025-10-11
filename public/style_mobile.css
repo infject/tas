@@ -47,7 +47,7 @@
     flex: 0 0 25vw !important;
     min-width: 25vw !important;
     max-width: 25vw !important;
-    height: 180px !important; /* perfect visual height for reduced container */
+    height: 160px !important; /* perfect visual height for reduced container */
     font-size: 0.9em !important;
     font-weight: 600 !important; /* ✅ keep the “bold” look from 9+ cards */
     text-rendering: optimizeLegibility !important;
