@@ -1,4 +1,4 @@
-/* === style_mobile.css - mobile portrait tuned for proper scroll and spacing === */
+/* === style_mobile.css - final mobile portrait tuned for proper scroll and uniform layout === */
 @media screen and (max-width: 768px) and (orientation: portrait) {
 
   html, body {
@@ -16,7 +16,8 @@
   #yourHand {
     position: relative !important;
     width: 175vw !important;
-    min-width: 185vw !important; /* ✅ forces slight overflow so scroll always works */
+    min-width: 185vw !important; /* ✅ perfect pair you found */
+    height: 250px !important; /* ✅ fixed consistent height */
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
@@ -27,17 +28,28 @@
     -webkit-overflow-scrolling: touch !important;
   }
 
-  /* ✅ Add left/right buffer so cards never start off-screen */
+  /* ✅ Hide scrollbar but keep smooth scroll */
+  #yourHand {
+    -ms-overflow-style: none;  /* IE/Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+  #yourHand::-webkit-scrollbar {
+    display: none;             /* Chrome/Safari */
+  }
+
+  /* ✅ Left/right soft spacing */
   #yourHand::before,
   #yourHand::after {
     content: "";
     flex: 0 0 2vw;
   }
 
+  /* ✅ Stable card size & height */
   #yourHand .card {
-    flex: 0 0 25vw !important; /* ✅ show ~3 full cards, scroll for more */
+    flex: 0 0 25vw !important;
     min-width: 25vw !important;
     max-width: 25vw !important;
+    height: 200px !important; /* ✅ same height from start */
   }
 
   .hud {
@@ -49,7 +61,7 @@
   #otherPlayers {
     position: relative !important;
     width: 175vw !important;
-    min-width: 185vw !important; /* ✅ same scroll behavior for players */
+    min-width: 185vw !important;
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
