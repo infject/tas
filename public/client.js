@@ -1,3 +1,4 @@
+// === Resonance Duel - Enhanced Client ===
 const socket = io();
 
 // --- Config ---
@@ -31,6 +32,33 @@ const drawBtn = document.getElementById('drawBtn');
 const potionBtn = document.getElementById('potionBtn');
 const endTurnBtn = document.getElementById('endTurnBtn');
 
+// --- Overlay UI ---
+let overlayDiv = document.createElement('div');
+overlayDiv.id = "overlayDiv";
+overlayDiv.style.cssText = `
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  color: white; font-size: 2em;
+  display: none; justify-content: center; align-items: center;
+  z-index: 2000; text-align: center;
+`;
+overlayDiv.innerHTML = `<div id="overlayText">Waiting...</div>`;
+document.body.appendChild(overlayDiv);
+
+function showOverlay(text) {
+  const overlayText = document.getElementById('overlayText');
+  overlayText.textContent = text || '';
+  overlayDiv.style.display = 'flex';
+}
+function hideOverlay() {
+  overlayDiv.style.display = 'none';
+}
+
+function showToast(msg, duration = 2500) {
+  showMessage(msg, duration);
+}
+
+// --- Message popup ---
 const messageDiv = document.createElement('div');
 messageDiv.id = "messageDiv";
 messageDiv.style.cssText = `
@@ -42,6 +70,12 @@ messageDiv.style.cssText = `
 `;
 document.body.appendChild(messageDiv);
 
+function showMessage(msg, duration = 3000) {
+  messageDiv.textContent = msg;
+  messageDiv.style.display = "block";
+  clearTimeout(showMessage._timeout);
+  showMessage._timeout = setTimeout(() => messageDiv.style.display = "none", duration);
+}
 
 // --- Mobile View Reset Helper ---
 function resetMobileView() {
@@ -54,6 +88,7 @@ function resetMobileView() {
   }
 }
 window.matchMedia("(orientation: portrait)").addEventListener("change", resetMobileView);
+
 // --- State ---
 let currentRoom = null;
 let selectedCard = null;
@@ -61,17 +96,27 @@ let targeting = false;
 let mySocketId = null;
 let deckSize = 0;
 let latestYourData = null;
-let latestOtherPlayers = {}; // <-- store other players
+let latestOtherPlayers = {};
+let waitingForPlayers = false;
+let gamePaused = false;
 
 // --- Helpers ---
-function showMessage(msg, duration = 3000) {
-  messageDiv.textContent = msg;
-  messageDiv.style.display = "block";
-  clearTimeout(showMessage._timeout);
-  showMessage._timeout = setTimeout(() => messageDiv.style.display = "none", duration);
-}
-
 function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
+// --- UI Lock/Unlock ---
+function disableGameControls() {
+  drawBtn.disabled = true;
+  potionBtn.disabled = true;
+  endTurnBtn.disabled = true;
+  yourHandDiv.style.pointerEvents = "none";
+}
+function enableGameControls() {
+  if (!latestYourData) return;
+  drawBtn.disabled = latestYourData.resonance < DRAW_COST;
+  potionBtn.disabled = latestYourData.potionCharges <= 0;
+  endTurnBtn.disabled = false;
+  yourHandDiv.style.pointerEvents = "auto";
+}
 
 // --- Event Handlers ---
 startBtn.onclick = () => {
@@ -109,7 +154,7 @@ potionBtn.onclick = () => {
 
 endTurnBtn.onclick = () => socket.emit('endTurn', currentRoom);
 
-// --- Socket ---
+// --- Socket Connections ---
 socket.on('connect', () => mySocketId = socket.id);
 socket.on('errorMessage', showMessage);
 socket.on('info', showMessage);
@@ -138,15 +183,28 @@ socket.on('roomList', rooms => {
   });
 });
 
-
 // --- Game Updates ---
 socket.on('update', data => {
   if (!data.yourData) return;
 
   latestYourData = data.yourData;
-  latestOtherPlayers = data.otherPlayers; // store for targeting
+  latestOtherPlayers = data.otherPlayers;
   deckSize = data.deckSize;
   const isMyTurn = data.turnId === socket.id;
+
+  // Hide waiting overlay once we have 2 or more players
+  const totalPlayers = Object.keys(latestOtherPlayers).length + 1;
+  if (totalPlayers >= 2 && waitingForPlayers) {
+    waitingForPlayers = false;
+    hideOverlay();
+    gamePaused = false;
+    enableGameControls();
+  }
+
+  if (gamePaused) {
+    disableGameControls();
+    return;
+  }
 
   updateTurnIndicator(data.turnId);
   updateButtons(isMyTurn);
@@ -154,17 +212,50 @@ socket.on('update', data => {
   renderHand(latestYourData.hand, isMyTurn);
   renderTable(data.table);
   renderOtherPlayers(latestOtherPlayers, data.turnId);
-  
   cancelTargetingIfNeeded(isMyTurn);
 });
 
-// --- UI Functions ---
+// --- New Server Events ---
+socket.on('waiting_for_players', () => {
+  waitingForPlayers = true;
+  showOverlay('Waiting for players to join...');
+  disableGameControls();
+});
+
+socket.on('actionDenied', data => {
+  if (data && data.reason) showToast(data.reason);
+});
+
+socket.on('hand_full', ({ msg }) => {
+  showToast(msg || "You can’t hold more than 6 cards.");
+});
+
+socket.on('playerTargeted', ({ targetId, by, cardId }) => {
+  const byName = latestOtherPlayers[by]?.name || "Someone";
+  const targetName = latestOtherPlayers[targetId]?.name || "a player";
+  showToast(`🌀 ${byName} targeted ${targetName}!`);
+});
+
+socket.on('you_lose', () => {
+  gamePaused = true;
+  showOverlay('💀 You Lose 💀');
+  disableGameControls();
+});
+
+socket.on('you_win', () => {
+  gamePaused = true;
+  showOverlay('🏆 You Win! 🏆');
+  disableGameControls();
+});
+
+// --- UI Update Functions ---
 function updateTurnIndicator(turnId) {
   const name = (turnId === mySocketId) ? "⭐ Your Turn ⭐" : (latestOtherPlayers[turnId]?.name || "Unknown");
   turnIndicatorDiv.textContent = `Current Turn: ${name}`;
 }
 
 function updateButtons(isMyTurn) {
+  if (waitingForPlayers || gamePaused) return disableGameControls();
   drawBtn.disabled = !isMyTurn || latestYourData.resonance < DRAW_COST;
   potionBtn.disabled = !isMyTurn || latestYourData.potionCharges <= 0;
   endTurnBtn.disabled = !isMyTurn;
@@ -176,24 +267,18 @@ function updateYourStats(your) {
     <div>🧍‍♂️ ${your.name}</div>
     <div>🌀 Resonance: ${your.resonance}</div>
     <div>❤️ Stability: ${your.stability}</div>
-    <div>🃏 Deck: ${deckSize} cards remains Draw cost: ${DRAW_COST} 🌀</div>
+    <div>🃏 Deck: ${deckSize} cards remain | Draw cost: ${DRAW_COST} 🌀</div>
     <div>🍷 Drinks taken: ${your.drinkCount || 0}</div>
-    
   `;
 }
 
 function renderHand(hand, isMyTurn) {
-  // Clear the container (no title text anymore)
   yourHandDiv.innerHTML = "";
-
-  // Apply compact style only if needed
   if (hand.length > 8) yourHandDiv.classList.add('compact');
   else yourHandDiv.classList.remove('compact');
 
-  // Ensure the scroll container resets position
   yourHandDiv.scrollLeft = 0;
 
-  // Render each card inside the hand container
   hand.forEach((card, idx) => {
     const cardDiv = document.createElement('div');
     cardDiv.className = 'card';
@@ -204,22 +289,15 @@ function renderHand(hand, isMyTurn) {
       <p>${card.effect}</p>
       <div class="resonance">Cost: ${card.cost}🌀</div>
     `;
-
-    // Animate entry (slightly staggered)
     cardDiv.classList.add('card-anim');
     cardDiv.style.animationDelay = (idx * 60) + 'ms';
-
-    // Card interactivity
     cardDiv.onclick = () => handleCardClick(card, isMyTurn);
     cardDiv.onpointerenter = () => cardDiv.classList.add('active-scale');
     cardDiv.onpointerleave = () => cardDiv.classList.remove('active-scale');
-    cardDiv.onfocus = () => cardDiv.classList.add('active-scale');
-    cardDiv.onblur = () => cardDiv.classList.remove('active-scale');
-
     yourHandDiv.appendChild(cardDiv);
   });
 
-  // === Horizontal drag scroll support ===
+  // Drag-scroll for hand
   let isDown = false;
   let startX;
   let scrollLeft;
@@ -229,32 +307,22 @@ function renderHand(hand, isMyTurn) {
     startX = e.pageX - yourHandDiv.offsetLeft;
     scrollLeft = yourHandDiv.scrollLeft;
   });
-  yourHandDiv.addEventListener('mouseleave', () => {
-    isDown = false;
-    yourHandDiv.classList.remove('dragging');
-  });
-  yourHandDiv.addEventListener('mouseup', () => {
-    isDown = false;
-    yourHandDiv.classList.remove('dragging');
-  });
+  yourHandDiv.addEventListener('mouseleave', () => { isDown = false; yourHandDiv.classList.remove('dragging'); });
+  yourHandDiv.addEventListener('mouseup', () => { isDown = false; yourHandDiv.classList.remove('dragging'); });
   yourHandDiv.addEventListener('mousemove', e => {
     if (!isDown) return;
     e.preventDefault();
     const x = e.pageX - yourHandDiv.offsetLeft;
-    const walk = (x - startX) * 1.5; // scroll speed
+    const walk = (x - startX) * 1.5;
     yourHandDiv.scrollLeft = scrollLeft - walk;
   });
 }
 
-
-
-
 function handleCardClick(card, isMyTurn) {
   if (!isMyTurn) return showMessage("Not your turn!");
+  if (waitingForPlayers || gamePaused) return showMessage("Game not active yet!");
 
-  // If already selecting a target...
   if (targeting) {
-    // If same card clicked again -> cancel targeting (toggle)
     if (selectedCard && selectedCard.id === card.id) {
       selectedCard = null;
       targeting = false;
@@ -266,12 +334,14 @@ function handleCardClick(card, isMyTurn) {
     }
   }
 
-  // Normal checks for starting targeting
   if (card.cost > latestYourData.resonance) return showMessage("Not enough resonance!");
 
-const targetRequired = [ "Echo Drain", "Layer Shift", "Timeline Lock", "Disarmonia Attack", "Unseen Echo", "Anchor Stone", 
-                        "Frequency Swap", "Collapse", "Echo Trap", "Layer Fusion", "Dissolve" ];
-  
+  const targetRequired = [
+    "Echo Drain", "Layer Shift", "Timeline Lock", "Disarmonia Attack",
+    "Unseen Echo", "Anchor Stone", "Frequency Swap", "Collapse",
+    "Echo Trap", "Layer Fusion", "Dissolve"
+  ];
+
   if (targetRequired.includes(card.name)) {
     selectedCard = card;
     targeting = true;
@@ -282,9 +352,7 @@ const targetRequired = [ "Echo Drain", "Layer Shift", "Timeline Lock", "Disarmon
   }
 }
 
-
 function renderTable(table) {
-  // Render into history content panel (history panel is toggled)
   if (historyContent) {
     historyContent.innerHTML = "";
     table.slice().reverse().forEach(entry => {
@@ -310,12 +378,9 @@ if (historyBtn && historyPanel && closeHistoryBtn) {
 
 function renderOtherPlayers(players, turnId) {
   otherPlayersDiv.innerHTML = "";
-
   const playersCount = Object.keys(players).length;
-  if (playersCount > 4) otherPlayersDiv.classList.add('compact'); else otherPlayersDiv.classList.remove('compact');
-
-
-  otherPlayersDiv.innerHTML = "";
+  if (playersCount > 4) otherPlayersDiv.classList.add('compact');
+  else otherPlayersDiv.classList.remove('compact');
 
   Object.entries(players).forEach(([id, p]) => {
     const div = document.createElement('div');
@@ -327,10 +392,6 @@ function renderOtherPlayers(players, turnId) {
       <div>🌀 ${p.resonance} | ❤️ ${p.stability}</div>
       <div>🍷 Drinks: ${p.drinkCount || 0}</div>
     `;
-    div.style.cursor = "default";
-    div.onclick = null;
-    div.classList.remove('targetable');
-
     otherPlayersDiv.appendChild(div);
   });
 
@@ -353,7 +414,6 @@ function enableTargeting() {
       highlightTargets(false);
     };
   });
-
   highlightTargets(true);
 }
 
@@ -380,4 +440,3 @@ function cancelTargetingIfNeeded(isMyTurn) {
     showMessage("Targeting cancelled (turn changed or card unavailable).");
   }
 }
-
