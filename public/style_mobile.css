@@ -1,4 +1,4 @@
-/* === style_mobile.css - final mobile portrait tuned for proper scroll and uniform layout === */
+/* === style_mobile.css - final tuned for perfect card height and consistent text === */
 @media screen and (max-width: 768px) and (orientation: portrait) {
 
   html, body {
@@ -16,8 +16,8 @@
   #yourHand {
     position: relative !important;
     width: 175vw !important;
-    min-width: 185vw !important; /* ✅ perfect pair you found */
-    height: 300px !important; /* ✅ fixed consistent height */
+    min-width: 185vw !important;
+    height: 200px !important; 
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
@@ -28,14 +28,12 @@
     -webkit-overflow-scrolling: touch !important;
   }
 
-  /* ✅ Hide scrollbar but keep smooth scroll */
+  /* ✅ Hide scrollbar but keep scroll */
   #yourHand {
-    -ms-overflow-style: none;  /* IE/Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
-  #yourHand::-webkit-scrollbar {
-    display: none;             /* Chrome/Safari */
-  }
+  #yourHand::-webkit-scrollbar { display: none; }
 
   /* ✅ Left/right soft spacing */
   #yourHand::before,
@@ -44,12 +42,16 @@
     flex: 0 0 2vw;
   }
 
-  /* ✅ Stable card size & height */
+  /* ✅ Consistent size + font rendering */
   #yourHand .card {
     flex: 0 0 25vw !important;
     min-width: 25vw !important;
     max-width: 25vw !important;
-    height: 200px !important; /* ✅ same height from start */
+    height: 180px !important; /* perfect visual height for reduced container */
+    font-size: 0.9em !important;
+    font-weight: 600 !important; /* ✅ keep the “bold” look from 9+ cards */
+    text-rendering: optimizeLegibility !important;
+    line-height: 1.25em !important;
   }
 
   .hud {
