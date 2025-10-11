@@ -239,7 +239,7 @@ function advanceTurn(roomCode) {
     current.locked = false;
     current.shield = false;
     current.preventOverload = false;
-    current.potionUsed = current.potionUsed || false;
+  //   current.potionUsed = current.potionUsed || false;
     // intentionally do NOT reset:
     // current.skipNextDamage = false;
     // current.avoidNextResonance = false;
@@ -290,6 +290,12 @@ function advanceTurn(roomCode) {
   if (next && next.alive && !next.disconnected) {
     drawCard(room, nextId, roomCode);
   }
+
+  // Clear Silence Field when the silencer's turn comes back around
+if (room.silencedBy === nextId) {
+  room.silencedBy = null;
+  io.to(roomCode).emit('info', `Silence Field fades — players can act again.`);
+}
 
   // Handle end-of-turn effects (current player)
 if (current) {
