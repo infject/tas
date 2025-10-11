@@ -1,77 +1,93 @@
-// server.js — full version with proper static path + potion handling
+// server.js - patched full server file
+// Replaces your existing server.js. Includes:
+// - flag persistence fixes (avoidNextResonance / skipNextDamage / reflectNext consumed only when used)
+// - safe server-side target validation
+// - disconnected players return hand to discard to avoid card loss
+// - reconnect by name handling
+// - max players per room (4), min players (2) noted for start logic
+// - max hand size (6) enforced on draws and initial deal
+
 const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-const { cards } = require('./cards');
+const { cards } = require('./cards'); // your patched cards module
 const fetch = require('node-fetch');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ✅ Serve static files from /public
+// Serve static files from /public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ Serve index.html at root
+// Serve index.html at root
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const rooms = {};
 
-// Health check route
-app.get("/health", (req, res) => {
-  res.status(200).send("OK");
-});
+// Health check route (used by keep-alive)
+app.get('/health', (req, res) => res.status(200).send('OK'));
 
-// Keep-alive ping every 5 minutes
+// Keep-alive ping (optional)
+const PORT = process.env.PORT || 3001;
 setInterval(() => {
   fetch(`http://localhost:${PORT}/health`).catch(() => {});
 }, 5 * 60 * 1000);
 
-// server-side config
-const DRAW_COST = 1; // resonance cost to draw extra card
+// --- Config ---
+const DRAW_COST = 1;       // resonance cost to draw
+const MAX_PLAYERS = 4;     // maximum players per room
+const MIN_PLAYERS = 2;     // minimum players (for starting logic)
+const MAX_HAND_SIZE = 6;   // max cards allowed in hand
 
-// --- Helpers ---
-const shuffle = deck => {
+// --- Utilities ---
+function shuffle(deck) {
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
-};
+}
 
 const generateDeck = () => shuffle([...cards]);
 
-const getRoomList = () =>
-  Object.keys(rooms).map(code => ({
-    code,
-    playerCount: Object.keys(rooms[code].players).length
-  }));
+function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
 
-function clamp(n, a, b) {
-  return Math.max(a, Math.min(b, n));
-}
-
-// --- Draw card with reshuffle ---
+// Draw helper that respects MAX_HAND_SIZE and reshuffles discard if needed
 function drawCard(room, playerId, roomCode) {
   const player = room.players[playerId];
   if (!player) return null;
 
-  if (room.deck.length === 0) {
-    if (room.discard.length === 0) return null;
+  // Respect max hand size
+  if (!Array.isArray(player.hand)) player.hand = [];
+  if (player.hand.length >= MAX_HAND_SIZE) return null;
+
+  if (!room.deck || room.deck.length === 0) {
+    if (!room.discard || room.discard.length === 0) return null;
     room.deck = shuffle([...room.discard]);
     room.discard = [];
     if (roomCode) io.to(roomCode).emit('info', 'Deck reshuffled!');
   }
 
   const card = room.deck.pop();
-  player.hand.push(card);
-  return card;
+  if (card) {
+    player.hand.push(card);
+    return card;
+  }
+  return null;
 }
 
-// --- Update room ---
+// --- Room list helper
+const getRoomList = () =>
+  Object.keys(rooms).map(code => ({
+    code,
+    playerCount: Object.keys(rooms[code].players).length
+  }));
+
+// --- Update room: emit per-player view
 function updateRoom(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
@@ -80,18 +96,19 @@ function updateRoom(roomCode) {
 
   for (const id in room.players) {
     const player = room.players[id];
-    const others = {};
+    if (!player) continue;
 
+    const others = {};
     for (const pid in room.players) {
       if (pid !== id) {
         const p = room.players[pid];
         others[pid] = {
           name: p.name,
-          handCount: p.hand.length,
+          handCount: (p.hand || []).length,
           resonance: p.resonance,
           stability: p.stability,
           alive: p.alive,
-          drinkCount: p.drinkCount || 0 // <-- add drinkCount for other players
+          drinkCount: p.drinkCount || 0,
         };
       }
     }
@@ -100,7 +117,7 @@ function updateRoom(roomCode) {
       yourData: {
         id: player.id,
         name: player.name,
-        hand: player.hand,
+        hand: player.hand || [],
         resonance: player.resonance,
         stability: player.stability,
         potionUsed: player.potionUsed,
@@ -113,17 +130,18 @@ function updateRoom(roomCode) {
         preventOverload: player.preventOverload,
         nextDiscard: player.nextDiscard,
         alive: player.alive,
-        drinkCount: player.drinkCount || 0 // <-- add drinkCount for self
+        disconnected: player.disconnected || false,
+        drinkCount: player.drinkCount || 0,
       },
-      table: room.table,
+      table: room.table || [],
       otherPlayers: others,
       turnId,
-      deckSize: room.deck.length
+      deckSize: room.deck ? room.deck.length : 0
     });
   }
 }
 
-// --- Advance turn ---
+// --- Advance turn (patched)
 function advanceTurn(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
@@ -132,22 +150,24 @@ function advanceTurn(roomCode) {
   const currentPlayerId = room.order[currentIndex];
   const current = room.players[currentPlayerId];
 
-  // Reset flags for current player
+  // Reset only flags that explicitly expire at end of this player's own turn.
+  // DO NOT reset flags that should persist until consumed:
+  // - skipNextDamage and avoidNextResonance should be consumed by applyStability/applyResonance
+  // - reflectNext is consumed when a card is reflected (handled in playCard)
   if (current) {
     current.locked = false;
     current.shield = false;
-    current.reflectNext = false;
-    current.skipNextDamage = false;
-    current.avoidNextResonance = false;
     current.preventOverload = false;
     current.potionUsed = current.potionUsed || false;
+    // intentionally do NOT reset:
+    // current.skipNextDamage = false;
+    // current.avoidNextResonance = false;
+    // current.reflectNext = false;
   }
 
-  // Move to next alive player
+  // Advance to next alive player; skip players not alive or disconnected
   if (!room.order || room.order.length === 0) return;
-  
   let attempts = 0;
-  // Advance turn index and skip players who are dead or flagged to be skipped.
   while (true) {
     room.turnIndex = (room.turnIndex + 1) % room.order.length;
     attempts++;
@@ -156,38 +176,37 @@ function advanceTurn(roomCode) {
     const candidateId = room.order[room.turnIndex];
     const candidate = room.players[candidateId];
 
-    // If candidate doesn't exist or isn't alive, continue searching.
-    if (!candidate || !candidate.alive) continue;
+    if (!candidate || !candidate.alive || candidate.disconnected) continue;
 
-    // If candidate is flagged to skip their turn, consume the flag, emit info, and continue to next.
+    // If candidate flagged to skip turn, consume flag and continue
     if (candidate.skipTurn) {
       candidate.skipTurn = false;
       io.to(roomCode).emit('info', `${candidate.name} skips their turn due to Timeline Lock.`);
       continue;
     }
-
-    // Found next valid player
+    // found valid candidate
     break;
   }
 
-const nextId = room.order[room.turnIndex];
+  const nextId = room.order[room.turnIndex];
   const next = room.players[nextId];
 
-  // Reset potion usage and give 1 potion per turn
+  // set potion usage & ensure charges
   if (next) {
     next.potionUsed = false;
-    next.potionCharges = Math.max(next.potionCharges, 1);
+    next.potionCharges = Math.max(next.potionCharges || 0, 1);
   }
-    // Apply any pending nextDiscard effect to the next player (trigger at start of their turn)
-    if (next && next.nextDiscard > 0 && next.hand.length > 0) {
-      next.hand.pop();
-      next.nextDiscard = 0;
-      io.to(roomCode).emit('info', `${next.name} discards a card due to an Echo Trap!`);
-    }
 
+  // Apply any pending nextDiscard effect to the next player (trigger at start of their turn)
+  if (next && next.nextDiscard > 0 && next.hand && next.hand.length > 0) {
+    // discard one random or last card
+    next.hand.pop();
+    next.nextDiscard = 0;
+    io.to(roomCode).emit('info', `${next.name} discards a card due to an Echo Trap!`);
+  }
 
-  // Draw 1 card at start of turn
-  if (next && next.alive) {
+  // Draw 1 card at start of turn (respecting MAX_HAND_SIZE)
+  if (next && next.alive && !next.disconnected) {
     drawCard(room, nextId, roomCode);
   }
 
@@ -199,7 +218,7 @@ const nextId = room.order[room.turnIndex];
   updateRoom(roomCode);
 }
 
-// --- Socket.IO ---
+// --- socket handling ---
 io.on('connection', socket => {
   console.log('New connection', socket.id);
   socket.emit('roomList', getRoomList());
@@ -207,7 +226,7 @@ io.on('connection', socket => {
   // --- Create room ---
   socket.on('createRoom', (roomCode, password, playerName) => {
     if (rooms[roomCode]) return socket.emit('errorMessage', 'Room exists');
-
+    // ensure not over capacity (global constraint)
     rooms[roomCode] = {
       players: {},
       deck: generateDeck(),
@@ -219,6 +238,7 @@ io.on('connection', socket => {
     };
 
     const room = rooms[roomCode];
+    // add player
     room.players[socket.id] = {
       id: socket.id,
       name: playerName,
@@ -235,14 +255,18 @@ io.on('connection', socket => {
       preventOverload: false,
       nextDiscard: 0,
       alive: true,
-      drinkCount: 0 // <-- initialize drinkCount
+      disconnected: false,
+      drinkCount: 0
     };
 
     room.order.push(socket.id);
     socket.join(roomCode);
 
-    // Draw initial hand
-    for (let i = 0; i < 4; i++) drawCard(room, socket.id, roomCode);
+    // initial hand - draw up to 4 but respecting MAX_HAND_SIZE
+    for (let i = 0; i < 4; i++) {
+      const c = drawCard(room, socket.id, roomCode);
+      if (!c) break;
+    }
 
     socket.emit('roomJoined', roomCode);
     updateRoom(roomCode);
@@ -255,6 +279,35 @@ io.on('connection', socket => {
     if (!room) return socket.emit('errorMessage', 'Room not found');
     if (room.password !== password) return socket.emit('errorMessage', 'Wrong password');
 
+    // Enforce maximum players
+    if (Object.keys(room.players).length >= MAX_PLAYERS) {
+      return socket.emit('errorMessage', `Room full (max ${MAX_PLAYERS} players).`);
+    }
+
+    // Reconnect logic: try to find disconnected player with same name and restore them
+    const existingId = Object.keys(room.players).find(id => {
+      const p = room.players[id];
+      return p && p.name === playerName && p.disconnected;
+    });
+    if (existingId) {
+      const existing = room.players[existingId];
+      // migrate data to new socket id
+      existing.disconnected = false;
+      existing.id = socket.id;
+      room.players[socket.id] = existing;
+      // remove old mapping
+      delete room.players[existingId];
+      // update order array
+      room.order = room.order.map(id => (id === existingId ? socket.id : id));
+      socket.join(roomCode);
+      socket.emit('roomJoined', roomCode);
+      io.to(roomCode).emit('info', `${playerName} has reconnected.`);
+      updateRoom(roomCode);
+      io.emit('roomList', getRoomList());
+      return;
+    }
+
+    // Normal join: create new player
     room.players[socket.id] = {
       id: socket.id,
       name: playerName,
@@ -271,20 +324,25 @@ io.on('connection', socket => {
       preventOverload: false,
       nextDiscard: 0,
       alive: true,
-      drinkCount: 0 // <-- initialize drinkCount
+      disconnected: false,
+      drinkCount: 0
     };
 
     room.order.push(socket.id);
     socket.join(roomCode);
 
-    for (let i = 0; i < 4; i++) drawCard(room, socket.id, roomCode);
+    // initial hand (respect MAX_HAND_SIZE)
+    for (let i = 0; i < 4; i++) {
+      const c = drawCard(room, socket.id, roomCode);
+      if (!c) break;
+    }
 
     socket.emit('roomJoined', roomCode);
     updateRoom(roomCode);
     io.emit('roomList', getRoomList());
   });
 
-  // --- Play card ---
+  // --- Play card (patched: server-side validation + reflection logic) ---
   socket.on('playCard', ({ roomCode, cardId, targetId }) => {
     const room = rooms[roomCode];
     if (!room) return;
@@ -304,31 +362,45 @@ io.on('connection', socket => {
 
     if (player.resonance < cost) return socket.emit('actionDenied', { reason: 'Insufficient resonance' });
 
+    // Validate target server-side — prevent self-targeting and invalid targets
+    const target = targetId ? room.players[targetId] : null;
+    if (target && target.id === player.id) {
+      return socket.emit('actionDenied', { reason: 'Cannot target yourself' });
+    }
+    if (target && (!room.players[targetId] || room.players[targetId].disconnected || !room.players[targetId].alive)) {
+      return socket.emit('actionDenied', { reason: 'Invalid target' });
+    }
+
+    // Deduct cost and remove card from hand
     player.resonance = clamp(player.resonance - cost, 0, 999);
     player.hand.splice(cardIndex, 1);
 
-    const target = targetId ? room.players[targetId] : null;
     if (targetId) io.to(roomCode).emit('playerTargeted', { targetId, by: socket.id, cardId: card.id });
 
     try {
       if (card.action) {
-        // Reflection handling: if target had reflectNext, reflect the effect back by swapping actor/target
+        // Reflection handling: if target has reflectNext, reflect the effect back by swapping actor/target.
         let actor = player;
         let actualTarget = target;
         if (target && target.reflectNext) {
+          // consume reflect flag immediately so it cannot reflect multiple times
           target.reflectNext = false;
-          // swap so the target becomes the actor and the original actor becomes the target
           actor = target;
           actualTarget = player;
           io.to(roomCode).emit('info', `${target.name} reflected ${card.name} back to ${player.name}!`);
         }
+        // Execute the card action with resolved actor/target/room context
         card.action(actor, actualTarget, room);
       }
-    } catch (e) { console.error('Card action error:', e); }
+    } catch (e) {
+      console.error('Card action error:', e);
+    }
 
+    // Add to table and discard
     room.table.push({ card, owner: socket.id, ownerName: player.name });
     room.discard.push(card);
 
+    // Check for fallen players
     for (const pid in room.players) {
       if (room.players[pid].stability <= 0 && room.players[pid].alive) {
         room.players[pid].alive = false;
@@ -351,12 +423,9 @@ io.on('connection', socket => {
     if (player.potionUsed) return socket.emit('actionDenied', { reason: 'Potion already used this turn' });
     if (player.potionCharges <= 0) return socket.emit('actionDenied', { reason: 'No potion charges left' });
 
-    // --- EFFECT: +1 resonance per potion ---
-    player.resonance = clamp(player.resonance + 1, 0, 999); 
+    player.resonance = clamp(player.resonance + 1, 0, 999);
     player.potionCharges--;
     player.potionUsed = true;
-
-    // Increment real-life drink count
     player.drinkCount = (player.drinkCount || 0) + 1;
 
     io.to(roomCode).emit('info', `${player.name} drank a potion! +1 Resonance`);
@@ -373,6 +442,11 @@ io.on('connection', socket => {
     const isTurn = room.order[room.turnIndex] === socket.id;
     if (!isTurn) return socket.emit('actionDenied', { reason: 'Not your turn' });
     if (player.resonance < DRAW_COST) return socket.emit('actionDenied', { reason: `Need ${DRAW_COST} resonance to draw.` });
+
+    // Enforce hand size
+    if ((player.hand || []).length >= MAX_HAND_SIZE) {
+      return socket.emit('actionDenied', { reason: `Hand full (max ${MAX_HAND_SIZE}).` });
+    }
 
     player.resonance = clamp(player.resonance - DRAW_COST, 0, 999);
     const card = drawCard(room, socket.id, roomCode);
@@ -392,39 +466,37 @@ io.on('connection', socket => {
   });
 
   // --- Disconnect ---
-socket.on('disconnect', () => {
-  for (const roomCode in rooms) {
-    const room = rooms[roomCode];
-    const player = room.players[socket.id];
-    if (!player) continue;
+  socket.on('disconnect', () => {
+    for (const roomCode in rooms) {
+      const room = rooms[roomCode];
+      const player = room.players[socket.id];
+      if (!player) continue;
 
-    io.to(roomCode).emit('info', `${player.name} has disconnected — their cards return to the deck.`);
+      io.to(roomCode).emit('info', `${player.name} has disconnected — their hand returns to discard.`);
 
-    // Move their hand and any other cards back into the discard pile
-    if (player.hand && player.hand.length > 0) {
-      room.discard.push(...player.hand);
-      player.hand = [];
+      // Return hand to discard so cards remain in circulation
+      if (Array.isArray(player.hand) && player.hand.length > 0) {
+        room.discard.push(...player.hand);
+        player.hand = [];
+      }
+
+      // Mark disconnected and not alive (so they are skipped)
+      player.disconnected = true;
+      player.alive = false;
+
+      // If it was their turn, advance immediately
+      const wasTheirTurn = room.order[room.turnIndex] === socket.id;
+      if (wasTheirTurn) {
+        io.to(roomCode).emit('info', `Skipping ${player.name}'s turn due to disconnection.`);
+        advanceTurn(roomCode);
+      }
+
+      // NOTE: we keep the player object to support reconnection by name.
     }
 
-    // Mark player as dead/inactive, but keep in order so we don't crash turn logic
-    player.alive = false;
-    player.disconnected = true;
-
-    // If it was their turn, advance immediately
-    const wasTheirTurn = room.order[room.turnIndex] === socket.id;
-    if (wasTheirTurn) {
-      io.to(roomCode).emit('info', `Skipping ${player.name}'s turn due to disconnection.`);
-      advanceTurn(roomCode);
-    }
-
-    // Optional: if you want to remove them completely, uncomment:
-    // delete room.players[socket.id];
-    // room.order = room.order.filter(id => id !== socket.id);
-  }
-
-  io.emit('roomList', getRoomList());
-});
+    io.emit('roomList', getRoomList());
+  });
 });
 
-const PORT = process.env.PORT || 3001;
+// Start server
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
