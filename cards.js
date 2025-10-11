@@ -301,7 +301,7 @@ const cards = [
   name: "Residual Echo",
   type: "Spell",
   cost: 1,
-  description: "Gain +1 Resonance but lose 1 Stability.",
+  effect: "Gain +2 Resonance but lose 1 Stability.",
   action: (player) => {
     player.resonance += 2;
     player.stability -= 1;
@@ -722,6 +722,7 @@ module.exports = {
   applyStability,
   shuffle
 };
+
 
 
 
