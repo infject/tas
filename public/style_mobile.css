@@ -17,7 +17,7 @@
     position: relative !important;
     width: 175vw !important;
     min-width: 185vw !important; /* ✅ perfect pair you found */
-    height: 250px !important; /* ✅ fixed consistent height */
+    height: 200px !important; /* ✅ fixed consistent height */
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
