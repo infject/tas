@@ -636,6 +636,8 @@ const cards = [
     action: (player, _, room) => {
       if (!room || !room.players) return;
       room.silencedBy = player.id;
+      room.silencedBy = actor.id;
+      setTimeout(() => room.silencedBy = null, 10000);
       // server should clear room.silencedBy at start of player's next turn
     }
   },
@@ -718,3 +720,4 @@ module.exports = {
   applyStability,
   shuffle
 };
+
