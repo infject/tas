@@ -80,6 +80,87 @@ function drawCard(room, playerId, roomCode) {
   return null;
 }
 
+// --- Helpers for applying effects ---
+
+function applyStability(target, amount, room, sourceName = '') {
+  if (!target || !target.alive) return;
+
+  // Phase Cloak: ignore all damage
+  if (target.phaseCloak) {
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} is cloaked and ignores the damage.`);
+    target.phaseCloak = false;
+    return;
+  }
+
+  // Reversal: convert next damage into resonance
+  if (target.reversalNext && amount < 0) {
+    target.reversalNext = false;
+    target.resonance = clamp(target.resonance + 2, 0, 999);
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name}'s Reversal turns damage into +2 Resonance!`);
+    return;
+  }
+
+  // Shield: blocks this damage instance
+  if (target.skipNextDamage && amount < 0) {
+    target.skipNextDamage = false;
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name}'s shield blocked the hit!`);
+    return;
+  }
+
+  target.stability = clamp(target.stability + amount, 0, 999);
+  if (amount < 0)
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} takes ${Math.abs(amount)} damage${sourceName ? ' from ' + sourceName : ''}.`);
+}
+
+function applyResonance(target, amount, room, sourceName = '') {
+  if (!target || !target.alive) return;
+
+  // Avoid next resonance loss
+  if (target.avoidNextResonance && amount < 0) {
+    target.avoidNextResonance = false;
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} avoids resonance loss.`);
+    return;
+  }
+
+  // Reflect resonance effect
+  if (target.reflectResonanceNext && amount < 0) {
+    target.reflectResonanceNext = false;
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} reflects the resonance drain!`);
+    // send reversed effect to all enemies (simplified)
+    Object.values(room.players).forEach(p => {
+      if (p.id !== target.id && p.alive) {
+        p.resonance = clamp(p.resonance - Math.abs(amount), 0, 999);
+      }
+    });
+    return;
+  }
+
+  // Anchored: cannot drop below 1
+  if (target.anchored && target.resonance + amount <= 0) {
+    target.resonance = 1;
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name}'s resonance cannot fall below 1 due to Anchored.`);
+    return;
+  }
+
+  // Pulse Conduit: extra gain
+  if (target.pulseConduit && amount > 0) {
+    amount += 1;
+  }
+
+  target.resonance = clamp(target.resonance + amount, 0, 999);
+  if (amount > 0)
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} gains ${amount} resonance${sourceName ? ' from ' + sourceName : ''}.`);
+  else if (amount < 0)
+    io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} loses ${Math.abs(amount)} resonance${sourceName ? ' from ' + sourceName : ''}.`);
+}
+
+function getRoomCodeByPlayer(room, playerId) {
+  for (const [code, r] of Object.entries(rooms)) {
+    if (r === room) return code;
+  }
+  return null;
+}
+
 // --- Room list helper
 const getRoomList = () =>
   Object.keys(rooms).map(code => ({
@@ -209,6 +290,30 @@ function advanceTurn(roomCode) {
   if (next && next.alive && !next.disconnected) {
     drawCard(room, nextId, roomCode);
   }
+
+  // Handle end-of-turn effects (current player)
+if (current) {
+  // Shard Totem: +1 stability at end of turn
+  if (current.shardTotem) {
+    current.stability = clamp(current.stability + 1, 0, 999);
+    io.to(roomCode).emit('info', `${current.name}'s Shard Totem restores 1 stability.`);
+  }
+
+  // Echo Catalyst: no persistent effect, handled on play
+  // Extra Turn: if flagged, don't rotate turn order
+  if (current.extraTurn) {
+    current.extraTurn = false;
+    io.to(roomCode).emit('info', `${current.name} gains an extra turn!`);
+    // return early so turn doesn’t advance
+    updateRoom(roomCode);
+    return;
+  }
+
+  // Reset short-term flags
+  current.phaseCloak = false;
+  current.reversalNext = false;
+  current.reflectResonanceNext = false;
+}
 
   io.to(roomCode).emit('turnChanged', {
     currentTurnIndex: room.turnIndex,
@@ -402,6 +507,10 @@ if (existingId) {
     if (targetId) io.to(roomCode).emit('playerTargeted', { targetId, by: socket.id, cardId: card.id });
 
     try {
+      // Silence Field: deny playing cards if not the silencer
+if (room.silencedBy && room.silencedBy !== socket.id) {
+  return socket.emit('actionDenied', { reason: 'Silence Field prevents playing cards this turn!' });
+}
       if (card.action) {
         // Reflection handling
         let actor = player;
@@ -413,6 +522,13 @@ if (existingId) {
           io.to(roomCode).emit('info', `${target.name} reflected ${card.name} back to ${player.name}!`);
         }
         card.action(actor, actualTarget, room);
+// Echo Catalyst: draw 1 card whenever playing a Spell card
+if (player.echoCatalyst && card.type === 'Spell') {
+  const drawn = drawCard(room, player.id, roomCode);
+  if (drawn) io.to(roomCode).emit('info', `${player.name}'s Echo Catalyst draws a bonus card!`);
+}
+
+        
       }
     } catch (e) {
       console.error('Card action error:', e);
