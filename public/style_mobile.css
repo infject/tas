@@ -15,8 +15,8 @@
   /* === Card hand === */
   #yourHand {
     position: relative !important;
-    width: 180vw !important;
-    min-width: 190vw !important; /* ✅ forces slight overflow so scroll always works */
+    width: 185vw !important;
+    min-width: 195vw !important; /* ✅ forces slight overflow so scroll always works */
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
@@ -35,9 +35,9 @@
   }
 
   #yourHand .card {
-    flex: 0 0 30vw !important; /* ✅ show ~3 full cards, scroll for more */
-    min-width: 30vw !important;
-    max-width: 30vw !important;
+    flex: 0 0 25vw !important; /* ✅ show ~3 full cards, scroll for more */
+    min-width: 25vw !important;
+    max-width: 25vw !important;
   }
 
   .hud {
@@ -48,8 +48,8 @@
   /* === Other players === */
   #otherPlayers {
     position: relative !important;
-    width: 180vw !important;
-    min-width: 190vw !important; /* ✅ same scroll behavior for players */
+    width: 185vw !important;
+    min-width: 195vw !important; /* ✅ same scroll behavior for players */
     overflow-x: auto !important;
     display: flex !important;
     justify-content: flex-start !important;
@@ -67,8 +67,8 @@
   }
 
   #otherPlayers .playerBox {
-    flex: 0 0 35vw !important;
-    min-width: 35vw !important;
-    max-width: 35vw !important;
+    flex: 0 0 25vw !important;
+    min-width: 25vw !important;
+    max-width: 25vw !important;
   }
 }
