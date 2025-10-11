@@ -457,7 +457,7 @@ const cards = [
   // 36 (defensive)
   {
     id: 36, name: "Phase Cloak", type: "Artifact", cost: 3,
-    effect: "Ignore all damage this turn (server must respect 'phaseCloak' flag at apply).",
+    effect: "Ignore all damage this turn",
     action: (player) => { player.phaseCloak = true; }
   },
 
@@ -722,6 +722,7 @@ module.exports = {
   applyStability,
   shuffle
 };
+
 
 
 
