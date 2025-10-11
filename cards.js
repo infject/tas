@@ -630,17 +630,17 @@ const cards = [
   },
 
   // 52
-  {
-    id: 52, name: "Silence Field", type: "Event", cost: 4,
-    effect: "No one can play cards until your next turn.",
-    action: (player, _, room) => {
-      if (!room || !room.players) return;
-      room.silencedBy = player.id;
-      room.silencedBy = actor.id;
-      setTimeout(() => room.silencedBy = null, 10000);
-      // server should clear room.silencedBy at start of player's next turn
-    }
-  },
+ {
+  id: 52, name: "Silence Field", type: "Event", cost: 4,
+  effect: "No one can play cards until your next turn.",
+  action: (player, _, room) => {
+    if (!room || !room.players) return;
+    room.silencedBy = player.id;
+    setTimeout(() => {
+      if (room.silencedBy === player.id) room.silencedBy = null;
+    }, 10000); // auto-clear after 10s (or on next turn)
+  }
+},
 
   // 53
   {
@@ -720,4 +720,5 @@ module.exports = {
   applyStability,
   shuffle
 };
+
 
