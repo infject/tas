@@ -28,28 +28,25 @@
     -webkit-overflow-scrolling: touch !important;
   }
 
-  /* ✅ Hide scrollbar but keep scroll */
   #yourHand {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
   #yourHand::-webkit-scrollbar { display: none; }
 
-  /* ✅ Left/right soft spacing */
   #yourHand::before,
   #yourHand::after {
     content: "";
     flex: 0 0 2vw;
   }
 
-  /* ✅ Consistent size + font rendering */
   #yourHand .card {
     flex: 0 0 25vw !important;
     min-width: 25vw !important;
     max-width: 25vw !important;
-    height: 140px !important; /* perfect visual height for reduced container */
+    height: 140px !important;
     font-size: 0.9em !important;
-    font-weight: 250 !important; /* ✅ keep the “bold” look from 9+ cards */
+    font-weight: 250 !important; 
     text-rendering: optimizeLegibility !important;
     line-height: 1.25em !important;
   }
