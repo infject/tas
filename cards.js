@@ -299,6 +299,7 @@ const cards = [
   {
   id: 22,
   name: "Residual Echo",
+  type: "Spell",
   cost: 1,
   description: "Gain +1 Resonance but lose 1 Stability.",
   action: (player) => {
@@ -444,11 +445,12 @@ const cards = [
 {
   id: 35,
   name: "Overtone Slash",
+  type: "Spell",
   cost: 2,
-  description: "Deal 3 Stability damage to target.",
+  effect: "Deal 3 Stability damage to target.",
   action: (player, target) => {
-    if (!target) return;
-    target.stability -= 3;
+    if (!target || target.id === player.id) return;
+    applyStability(target, -3);
   }
 },
 
@@ -720,5 +722,6 @@ module.exports = {
   applyStability,
   shuffle
 };
+
 
 
