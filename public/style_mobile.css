@@ -130,6 +130,24 @@ button:contains("Ready") {
   to { box-shadow: 0 0 25px rgba(255,214,51,0.8); }
 }
 
+@media (max-width: 600px) {
+  button {
+    font-family: 'Press Start 2P', cursive;
+    padding: 8px 9px;
+    font-size: 0.52em;
+    margin: -4px;
+    letter-spacing: -2px;
+    border-radius: 10px;
+    border: none;
+    background: #ffd633;
+    color: #0b0b1c;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+  }
+}
+
 /* === MUTE BUTTON === */
 button.mute-toggle,
 button:contains("Mute"),
