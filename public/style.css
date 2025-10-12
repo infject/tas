@@ -2,6 +2,7 @@
 /* === GLOBAL LAYOUT === */
 html, body {
   font-family: 'Press Start 2P', cursive;
+  font-size: 0.925em;
   background: radial-gradient(circle at center, #0b0b1c 0%, #000 100%);
   color: #fff;
   margin: 0;
