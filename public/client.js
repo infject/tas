@@ -443,6 +443,12 @@ socket.on('gameStarted', ({ firstPlayerId, order } = {}) => {
 
   enableGameControls();
   showToast('The duel begins!');
+  setTimeout(() => { overlayDiceContainer.style.display = 'none'; }, 800);
+  // --- Cleanup overlays and ready indicators after the game starts ---
+hideOverlay(); // hides the black overlay with "waiting/dice" etc.
+
+const readyStatus = document.getElementById('readyStatus');
+if (readyStatus) readyStatus.remove(); // remove the floating ready counter if visible
 });
 
 
