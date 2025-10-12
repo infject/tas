@@ -532,7 +532,7 @@ function updateYourStats(your) {
     <div>🧍 ${your.name}</div>
     <div>🌀 Resonance:${your.resonance}</div>
     <div>❤️ Stability:${your.stability}</div>
-    <div>🃏 Deck:${deckSize}Cards remain Draw cost:${DRAW_COST}🌀</div>
+    <div>🃏 Deck:${deckSize} Cards remain Draw cost:${DRAW_COST}🌀</div>
     <div>🍷 Drinks:${your.drinkCount || 0}</div>
   `;
 }
