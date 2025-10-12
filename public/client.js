@@ -173,7 +173,7 @@ unlockAudioOnFirstGesture();
 // --- Mute toggle button ---
 const muteBtn = document.createElement('button');
 muteBtn.textContent = '🔊 Mute';
-muteBtn.style.cssText = 'position:fixed;bottom:1px;right:1px;padding:6px 10px;z-index:3000;border-radius:6px;background:#222;color:#fff;border:none;opacity:0.5;';
+muteBtn.style.cssText = 'position:fixed;bottom:1px;right:1px;padding:6px 10px;z-index:3000;border-radius:6px;background:#222;color:#fff;border:none;opacity:0.7;';
 document.body.appendChild(muteBtn);
 muteBtn.onclick = () => {
   if (musicEnabled) { toggleMusic(true); muteBtn.textContent = '🔈 Unmute'; }
@@ -355,7 +355,7 @@ socket.on('readyState', payload => {
   document.getElementById('readyStatus').textContent = `Ready players: ${readyCount}/${total}`;
 });
  
-// countdown start
+// countdown start  //here is ti
 socket.on('countdownStarted', ({ endsAt, countdownMs } = {}) => {
   const now = Date.now();
   const secondsLeft = endsAt ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : (countdownMs ? Math.ceil(countdownMs / 1000) : COUNTDOWN_SECONDS_DEFAULT);
@@ -363,14 +363,30 @@ socket.on('countdownStarted', ({ endsAt, countdownMs } = {}) => {
   clearInterval(countdownTimer);
   overlayDiv.classList.add('countdown-active');
   showOverlay(`\u{1F3B2} Duel begins in ${countdownValue}s`);
+
+  // Save and shrink font size
+  if (overlayText) {
+    originalFontSize = window.getComputedStyle(overlayText).fontSize;
+    overlayText.style.fontSize = '50%'; // or '14px' if you prefer fixed
+  }
+
   try { if (musicEnabled && sounds.countdownStart) sounds.countdownStart.play().catch(()=>{}); } catch(e){}
+
   countdownTimer = setInterval(() => {
     countdownValue--;
-    if (countdownValue <= 0) { clearInterval(countdownTimer); }
+    if (countdownValue <= 0) {
+      clearInterval(countdownTimer);
+
+      // Restore original font size
+      if (overlayText) {
+        overlayText.style.fontSize = originalFontSize;
+      }
+    }
+
     try { if (musicEnabled && sounds.countdownTick) sounds.countdownTick.play().catch(()=>{}); } catch(e){}
     if (overlayText) overlayText.textContent = `\u{1F3B2} Duel begins in ${Math.max(0, countdownValue)}s`;
   }, 1000);
-});
+}); //here is ti
 
 // countdown cancelled
 socket.on('countdownCancelled', ({ reason } = {}) => {
