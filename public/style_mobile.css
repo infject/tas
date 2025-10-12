@@ -83,3 +83,75 @@
     max-width: 25vw !important;
   }
 }
+/* === OVERLAY COUNTDOWN + READY SYSTEM ADD-ONS === */
+
+/* Overlay text fade pulse for countdown/dice roll */
+#overlayDiv {
+  animation: overlayFadeIn 0.4s ease-out forwards;
+  text-shadow: 0 0 15px rgba(255, 214, 51, 0.7);
+}
+#overlayText {
+  animation: overlayPulse 1s ease-in-out infinite;
+}
+@keyframes overlayFadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes overlayPulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* Countdown numeric emphasis */
+#overlayDiv.countdown-active #overlayText {
+  font-size: 2.6em;
+  color: #ffd633;
+  text-shadow: 0 0 25px rgba(255, 214, 51, 0.8);
+}
+
+/* Dice roll winner flash */
+#overlayDiv.dice-announce #overlayText {
+  animation: diceFlash 1s ease-in-out infinite alternate;
+}
+@keyframes diceFlash {
+  0% { color: #ffd633; text-shadow: 0 0 10px rgba(255,214,51,0.6); }
+  100% { color: #fff; text-shadow: 0 0 25px rgba(255,255,255,0.9); }
+}
+
+/* === READY BUTTON === */
+#lobby button#readyBtn,
+button:contains("Ready") {
+  background: linear-gradient(135deg, #ffd633, #ffed75);
+  border: 2px solid rgba(255,214,51,0.6);
+  animation: readyGlow 2s ease-in-out infinite alternate;
+}
+@keyframes readyGlow {
+  from { box-shadow: 0 0 10px rgba(255,214,51,0.4); }
+  to { box-shadow: 0 0 25px rgba(255,214,51,0.8); }
+}
+
+/* === MUTE BUTTON === */
+button.mute-toggle,
+button:contains("Mute"),
+button:contains("Unmute") {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(255,214,51,0.95);
+  color: #0b0b1c;
+  border-radius: 12px;
+  font-weight: bold;
+  z-index: 3000;
+  box-shadow: 0 0 10px rgba(255,214,51,0.6);
+  transition: all 0.3s ease;
+}
+button.mute-toggle:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(255,214,51,0.9);
+}
+
+/* === BACKGROUND GIF === */
+body {
+  background: url('/assets/bg_arcade.gif') center center / cover no-repeat fixed;
+  background-color: #000;
+}
