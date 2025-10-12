@@ -1,3 +1,4 @@
+
 /* === style_mobile.css - final tuned for perfect card height and consistent text === */
 @media screen and (max-width: 768px) and (orientation: portrait) {
 
@@ -138,6 +139,7 @@ button:contains("Ready") {
     margin: -4px;
     letter-spacing: -2px;
     border-radius: 10px;
+    border: none;
     background: #ffd633;
     color: #0b0b1c;
     font-weight: bold;
