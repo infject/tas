@@ -173,7 +173,7 @@ unlockAudioOnFirstGesture();
 // --- Mute toggle button ---
 const muteBtn = document.createElement('button');
 muteBtn.textContent = '🔊 Mute';
-muteBtn.style.cssText = 'position:fixed;top:1px;left:1px;padding:6px 10px;z-index:3000;border-radius:6px;background:#222;color:#fff;border:none;';
+muteBtn.style.cssText = 'position:fixed;top:1px;left:1px;padding:6px 10px;z-index:3000;border-radius:6px;background:#222;color:#fff;border:none;opacity:0.5;';
 document.body.appendChild(muteBtn);
 muteBtn.onclick = () => {
   if (musicEnabled) { toggleMusic(true); muteBtn.textContent = '🔈 Unmute'; }
