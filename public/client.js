@@ -417,17 +417,23 @@ socket.on('diceResults', ({ rolls, winnerId } = {}) => {
   }, DICE_ANIM_MS);
 });
 
-// game started - server will set turn order and call startGame or do default
 socket.on('gameStarted', ({ firstPlayerId, order } = {}) => {
-  // reset ready button
-  readyClicked = false;
-  if (readyBtn) { readyBtn.disabled = false; readyBtn.textContent = "I'm Ready!"; readyBtn.classList.add('hidden'); }
+  console.log('✅ Game started! First turn:', firstPlayerId);
 
-  try { if (musicEnabled && sounds.play) sounds.play.play().catch(()=>{}); } catch(e){}
-  overlayDiv.classList.remove('countdown-active', 'dice-announce', 'dice-rolling');
-  hideOverlay();
-  enableGameControls();
+  // Hide all lobby/overlay visuals
+  if (overlayDiv) hideOverlay();
+  if (readyBtn) readyBtn.classList.add('hidden');
+
+  // Switch to the game view
+  lobbyDiv && lobbyDiv.classList.add('hidden');
+  gameDiv && gameDiv.classList.remove('hidden');
+
+  // Reset flags and enable play controls
   waitingForPlayers = false;
+  gamePaused = false;
+  enableGameControls();
+
+  showToast('The duel begins!');
 });
 
 // update: per-player view emitted to each player
