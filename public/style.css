@@ -8,7 +8,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  display: flex;
+  /* display: flex;*/
   flex-direction: column;
   align-items: center;
   text-align: center;
