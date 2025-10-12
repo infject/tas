@@ -335,14 +335,24 @@ socket.on('roomJoined', (room) => {
 });
 
 
-// ready state and countdown
-socket.on('readyState', (payload) => {
+socket.on('readyState', payload => {
   const readyMap = payload && payload.ready ? payload.ready : payload || {};
   const entries = Object.entries(readyMap || {});
-  const readyCount = entries.filter(([id, val]) => !!val).length;
+  const readyCount = entries.filter(([id,val]) => !!val).length;
   const total = entries.length || 0;
-  showOverlay(`Ready players: ${readyCount}/${total}`);
-  disableGameControls();
+
+  // ✅ Don’t block UI during ready phase — just display text at the top.
+  if (!document.getElementById('readyStatus')) {
+    const status = document.createElement('div');
+    status.id = 'readyStatus';
+    status.style.cssText = `
+      position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.6); color: #fff; padding: 8px 14px;
+      border-radius: 8px; font-size: 1.2em; z-index: 999;
+    `;
+    document.body.appendChild(status);
+  }
+  document.getElementById('readyStatus').textContent = `Ready players: ${readyCount}/${total}`;
 });
 
 // countdown start
