@@ -367,7 +367,7 @@ socket.on('countdownStarted', ({ endsAt, countdownMs } = {}) => {
   // Save and shrink font size
   if (overlayText) {
     originalFontSize = window.getComputedStyle(overlayText).fontSize;
-    overlayText.style.fontSize = '50%'; // or '14px' if you prefer fixed
+    overlayText.style.fontSize = '70%'; // or '14px' if you prefer fixed
   }
 
   try { if (musicEnabled && sounds.countdownStart) sounds.countdownStart.play().catch(()=>{}); } catch(e){}
