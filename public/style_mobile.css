@@ -134,18 +134,17 @@ button:contains("Ready") {
 @media (max-width: 600px) {
   button {
     font-family: 'Press Start 2P', cursive;
-    padding: 8px 9px;
     font-size: 0.52em;
     margin: -3px;
     letter-spacing: -2px;
-    border-radius: 10px;
-    border: none;
-    background: #ffd633;
-    color: #0b0b1c;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.25s ease;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+  padding: 8px 9px;
+  border-radius: 10px;
+  background: #ffd633;
+  color: #0b0b1c;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
   }
 }
 
