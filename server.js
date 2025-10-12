@@ -6,6 +6,8 @@
 // - reconnect by name handling
 // - max players per room (4), min players (2) noted for start logic
 // - max hand size (6) enforced on draws and initial deal
+// - READY / COUNTDOWN (10s) / RANDOM STARTER system added
+//   emits: readyState, countdownStarted, countdownCancelled, diceRolling, diceResults, gameStarted
 
 const express = require('express');
 const http = require('http');
@@ -42,6 +44,7 @@ const DRAW_COST = 1;       // resonance cost to draw
 const MAX_PLAYERS = 4;     // maximum players per room
 const MIN_PLAYERS = 2;     // minimum players (for starting logic)
 const MAX_HAND_SIZE = 6;   // max cards allowed in hand
+const COUNTDOWN_MS = 10000; // 10 second countdown for ready/start
 
 // --- Utilities ---
 function shuffle(deck) {
@@ -69,12 +72,15 @@ function drawCard(room, playerId, roomCode) {
     if (!room.discard || room.discard.length === 0) return null;
     room.deck = shuffle([...room.discard]);
     room.discard = [];
+    if (roomCode) io.to(roomCode).emit('deckShuffled');
     if (roomCode) io.to(roomCode).emit('info', 'Deck reshuffled!');
   }
 
   const card = room.deck.pop();
   if (card) {
     player.hand.push(card);
+    // notify player-specific draw event
+    io.to(playerId).emit('cardDrawn', { playerId });
     return card;
   }
   return null;
@@ -110,6 +116,8 @@ function applyStability(target, amount, room, sourceName = '') {
   target.stability = clamp(target.stability + amount, 0, 999);
   if (amount < 0)
     io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} takes ${Math.abs(amount)} damage${sourceName ? ' from ' + sourceName : ''}.`);
+  // emit playerDamaged so clients can play SFX
+  if (amount < 0) io.to(target.id).emit('playerDamaged', { targetId: target.id, amount: Math.abs(amount) });
 }
 
 function applyResonance(target, amount, room, sourceName = '') {
@@ -152,6 +160,10 @@ function applyResonance(target, amount, room, sourceName = '') {
     io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} gains ${amount} resonance${sourceName ? ' from ' + sourceName : ''}.`);
   else if (amount < 0)
     io.to(getRoomCodeByPlayer(room, target.id)).emit('info', `${target.name} loses ${Math.abs(amount)} resonance${sourceName ? ' from ' + sourceName : ''}.`);
+
+  // emit resonanceGained or resonanceLost
+  if (amount > 0) io.to(target.id).emit('resonanceGained', { targetId: target.id, amount });
+  if (amount < 0) io.to(target.id).emit('resonanceLost', { targetId: target.id, amount: Math.abs(amount) });
 }
 
 function getRoomCodeByPlayer(room, playerId) {
@@ -173,7 +185,7 @@ function updateRoom(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
 
-  const turnId = room.order[room.turnIndex];
+  const turnId = room.order && room.order.length ? room.order[room.turnIndex] : null;
 
   for (const id in room.players) {
     const player = room.players[id];
@@ -217,7 +229,8 @@ function updateRoom(roomCode) {
       table: room.table || [],
       otherPlayers: others,
       turnId,
-      deckSize: room.deck ? room.deck.length : 0
+      deckSize: room.deck ? room.deck.length : 0,
+      ready: room.ready || {}
     });
   }
 }
@@ -292,34 +305,34 @@ function advanceTurn(roomCode) {
   }
 
   // Clear Silence Field when the silencer's turn comes back around
-if (room.silencedBy === nextId) {
-  room.silencedBy = null;
-  io.to(roomCode).emit('info', `Silence Field fades — players can act again.`);
-}
+  if (room.silencedBy === nextId) {
+    room.silencedBy = null;
+    io.to(roomCode).emit('info', `Silence Field fades — players can act again.`);
+  }
 
   // Handle end-of-turn effects (current player)
-if (current) {
-  // Shard Totem: +1 stability at end of turn
-  if (current.shardTotem) {
-    current.stability = clamp(current.stability + 1, 0, 999);
-    io.to(roomCode).emit('info', `${current.name}'s Shard Totem restores 1 stability.`);
-  }
+  if (current) {
+    // Shard Totem: +1 stability at end of turn
+    if (current.shardTotem) {
+      current.stability = clamp(current.stability + 1, 0, 999);
+      io.to(roomCode).emit('info', `${current.name}'s Shard Totem restores 1 stability.`);
+    }
 
-  // Echo Catalyst: no persistent effect, handled on play
-  // Extra Turn: if flagged, don't rotate turn order
-  if (current.extraTurn) {
-    current.extraTurn = false;
-    io.to(roomCode).emit('info', `${current.name} gains an extra turn!`);
-    // return early so turn doesn’t advance
-    updateRoom(roomCode);
-    return;
-  }
+    // Echo Catalyst: no persistent effect, handled on play
+    // Extra Turn: if flagged, don't rotate turn order
+    if (current.extraTurn) {
+      current.extraTurn = false;
+      io.to(roomCode).emit('info', `${current.name} gains an extra turn!`);
+      // return early so turn doesn’t advance
+      updateRoom(roomCode);
+      return;
+    }
 
-  // Reset short-term flags
-  current.phaseCloak = false;
-  current.reversalNext = false;
-  current.reflectResonanceNext = false;
-}
+    // Reset short-term flags
+    current.phaseCloak = false;
+    current.reversalNext = false;
+    current.reflectResonanceNext = false;
+  }
 
   io.to(roomCode).emit('turnChanged', {
     currentTurnIndex: room.turnIndex,
@@ -329,10 +342,146 @@ if (current) {
   updateRoom(roomCode);
 }
 
+// --- START: READY / COUNTDOWN / RANDOM STARTER SYSTEM ---
+// Adds per-room ready map, countdown handles, and startMatch to pick a random ready player.
+
+function broadcastReadyState(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  io.to(roomCode).emit('readyState', { ready: room.ready || {} });
+}
+
+function cancelCountdown(roomCode, reason) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  if (room._startCountdownHandle) {
+    clearTimeout(room._startCountdownHandle);
+    room._startCountdownHandle = null;
+    room.countdownEndsAt = null;
+    room.waitingForStart = false;
+    io.to(roomCode).emit('countdownCancelled', { reason });
+  }
+}
+
+// startMatch: pick one random ready player as first player and start game
+function startMatch(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+
+  // sanity: check players
+  const players = Object.values(room.players || {}).filter(p => p && !p.disconnected && p.alive !== false);
+  const readyPlayers = players.filter(p => room.ready && room.ready[p.id]);
+
+  if (readyPlayers.length < MIN_PLAYERS) {
+    room.waitingForStart = false;
+    io.to(roomCode).emit('info', { msg: 'Not enough players to start' });
+    return;
+  }
+
+  // announce dice (visual) rolling so clients can play animation/sfx
+  io.to(roomCode).emit('diceRolling');
+
+  // Choose random player among readyPlayers as winner
+  const winner = readyPlayers[Math.floor(Math.random() * readyPlayers.length)];
+
+  // Compose pseudo-rolls object for clients to display (we'll assign random numbers only for show)
+  const rolls = {};
+  readyPlayers.forEach(p => {
+    rolls[p.id] = Math.floor(Math.random() * 6) + 1; // for UI flavor only
+  });
+  // but ensure winnerId is the chosen one
+  const winnerId = winner.id;
+
+  // Broadcast results
+  io.to(roomCode).emit('diceResults', { rolls, winnerId });
+
+  // small delay so clients can show dice animation (matching client-side expectation)
+  setTimeout(() => {
+    // Set turn order: rotate existing order so that winner is first
+    const orderedPlayers = (room.order && room.order.slice()) || (players.map(p => p.id));
+    let startIndex = orderedPlayers.indexOf(winnerId);
+    if (startIndex === -1) {
+      // fallback: put winner first then append others
+      const others = orderedPlayers.filter(id => id !== winnerId);
+      room.order = [winnerId, ...others];
+    } else {
+      room.order = orderedPlayers.slice(startIndex).concat(orderedPlayers.slice(0, startIndex));
+    }
+
+    room.turnIndex = 0;
+    room.waitingForStart = false;
+    room.ready = {};
+
+    io.to(roomCode).emit('gameStarted', { firstPlayerId: winnerId, order: room.order });
+
+    // If you have an existing startGame function, call it to deal initial state.
+    if (typeof startGame === 'function') {
+      startGame(roomCode, winnerId);
+    } else {
+      // default behavior: give the first player a draw (we also ensure everyone has at least initial draw if they didn't)
+      const first = room.players[winnerId];
+      if (first) {
+        // ensure first player draws up to 4 (but respect MAX_HAND_SIZE)
+        while ((first.hand || []).length < 4 && drawCard(room, winnerId, roomCode)) { /* draw until done */ }
+      }
+      io.to(roomCode).emit('info', `Game started. ${first ? first.name : winnerId} goes first.`);
+    }
+
+    updateRoom(roomCode);
+
+  }, 800); // 800ms for client animation
+}
+
+// --- END: READY / COUNTDOWN / RANDOM STARTER SYSTEM ---
+
 // --- socket handling ---
 io.on('connection', socket => {
   console.log('New connection', socket.id);
   socket.emit('roomList', getRoomList());
+
+  // --- Toggle Ready ---
+  socket.on('toggleReady', (roomCode) => {
+    const room = rooms[roomCode];
+    if (!room) return socket.emit('actionDenied', { msg: 'Room not found' });
+
+    room.ready = room.ready || {};
+    // default false -> set true, true->set false
+    room.ready[socket.id] = !room.ready[socket.id];
+
+    // If a disconnected player is ready (shouldn't), mark false
+    if (room.players && room.players[socket.id] && room.players[socket.id].disconnected) {
+      room.ready[socket.id] = false;
+    }
+
+    broadcastReadyState(roomCode);
+
+    // Evaluate whether to start or cancel countdown
+    const players = Object.values(room.players || {}).filter(p => p && !p.disconnected && p.alive !== false);
+    const readyPlayers = players.filter(p => room.ready[p.id]);
+
+    const allReady = players.length >= MIN_PLAYERS && readyPlayers.length === players.length;
+
+    // If all ready and countdown not running -> start it
+    if (allReady && !room._startCountdownHandle) {
+      room.waitingForStart = true;
+      const countdownMs = COUNTDOWN_MS;
+      room.countdownEndsAt = Date.now() + countdownMs;
+
+      // Broadcast countdown start with absolute timestamp
+      io.to(roomCode).emit('countdownStarted', { endsAt: room.countdownEndsAt, countdownMs });
+
+      // store handle to allow cancelling
+      room._startCountdownHandle = setTimeout(() => {
+        room._startCountdownHandle = null;
+        startMatch(roomCode);
+      }, countdownMs);
+    }
+
+    // If countdown running and somebody un-ready -> cancel
+    if (room._startCountdownHandle && !allReady) {
+      cancelCountdown(roomCode, 'player_unready');
+    }
+  });
 
   // --- Create room ---
   socket.on('createRoom', (roomCode, password, playerName) => {
@@ -346,7 +495,11 @@ io.on('connection', socket => {
       turnIndex: 0,
       order: [],
       password,
-      discard: []
+      discard: [],
+      ready: {},
+      waitingForStart: false,
+      _startCountdownHandle: null,
+      countdownEndsAt: null
     };
 
     const room = rooms[roomCode];
@@ -408,41 +561,41 @@ io.on('connection', socket => {
       return socket.emit('errorMessage', 'Room is full. Please join another or create a new one.');
     }
 
-   // --- Reconnect logic: try to find disconnected player with same name and restore them ---
-const existingId = Object.keys(room.players).find(id => {
-  const p = room.players[id];
-  return p && p.name === playerName && p.disconnected;
-});
+    // --- Reconnect logic: try to find disconnected player with same name and restore them ---
+    const existingId = Object.keys(room.players).find(id => {
+      const p = room.players[id];
+      return p && p.name === playerName && p.disconnected;
+    });
 
-if (existingId) {
-  const existing = room.players[existingId];
-  const disconnectedDuration = Date.now() - (existing.disconnectedAt || 0);
+    if (existingId) {
+      const existing = room.players[existingId];
+      const disconnectedDuration = Date.now() - (existing.disconnectedAt || 0);
 
-  // Restore player slot
-  existing.disconnected = false;
-  existing.id = socket.id;
-  room.players[socket.id] = existing;
-  delete room.players[existingId];
-  room.order = room.order.map(id => (id === existingId ? socket.id : id));
-  socket.join(roomCode);
+      // Restore player slot
+      existing.disconnected = false;
+      existing.id = socket.id;
+      room.players[socket.id] = existing;
+      delete room.players[existingId];
+      room.order = room.order.map(id => (id === existingId ? socket.id : id));
+      socket.join(roomCode);
 
-  // If disconnected more than 2 minutes, rebuild a fresh hand
-  if (disconnectedDuration > 2 * 60 * 1000) {
-    io.to(roomCode).emit('info', `${playerName} has reconnected after 2 minutes — refreshing hand.`);
-    existing.hand = [];
-    for (let i = 0; i < 4; i++) {
-      const c = drawCard(room, socket.id, roomCode);
-      if (!c) break;
+      // If disconnected more than 2 minutes, rebuild a fresh hand
+      if (disconnectedDuration > 2 * 60 * 1000) {
+        io.to(roomCode).emit('info', `${playerName} has reconnected after 2 minutes — refreshing hand.`);
+        existing.hand = [];
+        for (let i = 0; i < 4; i++) {
+          const c = drawCard(room, socket.id, roomCode);
+          if (!c) break;
+        }
+      } else {
+        io.to(roomCode).emit('info', `${playerName} has reconnected with their original hand.`);
+      }
+
+      socket.emit('roomJoined', roomCode);
+      updateRoom(roomCode);
+      io.emit('roomList', getRoomList());
+      return;
     }
-  } else {
-    io.to(roomCode).emit('info', `${playerName} has reconnected with their original hand.`);
-  }
-
-  socket.emit('roomJoined', roomCode);
-  updateRoom(roomCode);
-  io.emit('roomList', getRoomList());
-  return;
-}
 
     // Normal join: create new player
     room.players[socket.id] = {
@@ -506,6 +659,11 @@ if (existingId) {
     if (target && (!room.players[targetId] || room.players[targetId].disconnected || !room.players[targetId].alive))
       return socket.emit('actionDenied', { reason: 'Invalid target' });
 
+    // Silence Field: deny playing cards if not the silencer
+    if (room.silencedBy && room.silencedBy !== socket.id) {
+      return socket.emit('actionDenied', { reason: 'Silence Field prevents playing cards this turn!' });
+    }
+
     // Deduct cost and remove card from hand
     player.resonance = clamp(player.resonance - cost, 0, 999);
     player.hand.splice(cardIndex, 1);
@@ -513,10 +671,6 @@ if (existingId) {
     if (targetId) io.to(roomCode).emit('playerTargeted', { targetId, by: socket.id, cardId: card.id });
 
     try {
-      // Silence Field: deny playing cards if not the silencer
-if (room.silencedBy && room.silencedBy !== socket.id) {
-  return socket.emit('actionDenied', { reason: 'Silence Field prevents playing cards this turn!' });
-}
       if (card.action) {
         // Reflection handling
         let actor = player;
@@ -528,13 +682,12 @@ if (room.silencedBy && room.silencedBy !== socket.id) {
           io.to(roomCode).emit('info', `${target.name} reflected ${card.name} back to ${player.name}!`);
         }
         card.action(actor, actualTarget, room);
-// Echo Catalyst: draw 1 card whenever playing a Spell card
-if (player.echoCatalyst && card.type === 'Spell') {
-  const drawn = drawCard(room, player.id, roomCode);
-  if (drawn) io.to(roomCode).emit('info', `${player.name}'s Echo Catalyst draws a bonus card!`);
-}
 
-        
+        // Echo Catalyst: draw 1 card whenever playing a Spell card
+        if (player.echoCatalyst && card.type === 'Spell') {
+          const drawn = drawCard(room, player.id, roomCode);
+          if (drawn) io.to(roomCode).emit('info', `${player.name}'s Echo Catalyst draws a bonus card!`);
+        }
       }
     } catch (e) {
       console.error('Card action error:', e);
@@ -608,49 +761,60 @@ if (player.echoCatalyst && card.type === 'Spell') {
     advanceTurn(roomCode);
   });
 
- // --- Disconnect ---
-socket.on('disconnect', () => {
-  for (const roomCode in rooms) {
-    const room = rooms[roomCode];
-    const player = room.players[socket.id];
-    if (!player) continue;
+  // --- Disconnect ---
+  socket.on('disconnect', () => {
+    for (const roomCode in rooms) {
+      const room = rooms[roomCode];
+      const player = room.players[socket.id];
+      if (!player) continue;
 
-    io.to(roomCode).emit('info', `${player.name} has disconnected — they have 2 minutes to reconnect before their cards are lost.`);
+      io.to(roomCode).emit('info', `${player.name} has disconnected — they have 2 minutes to reconnect before their cards are lost.`);
 
-    // Mark as disconnected but keep their hand temporarily
-    player.disconnected = true;
-    player.alive = false;
-    player.disconnectedAt = Date.now();
+      // Mark as disconnected but keep their hand temporarily
+      player.disconnected = true;
+      player.alive = false;
+      player.disconnectedAt = Date.now();
 
-    // If it was their turn, skip them
-    const wasTheirTurn = room.order[room.turnIndex] === socket.id;
-    if (wasTheirTurn) {
-      io.to(roomCode).emit('info', `Skipping ${player.name}'s turn due to disconnection.`);
-      advanceTurn(roomCode);
-    }
-
-    // Schedule a 2-minute timeout to discard their hand if they don't return
-    setTimeout(() => {
-      const stillRoom = rooms[roomCode];
-      if (!stillRoom) return;
-
-      const stillPlayer = stillRoom.players[socket.id];
-      // If player either reconnected or is already gone, skip cleanup
-      if (!stillPlayer || !stillPlayer.disconnected) return;
-
-      // Discard their hand after timeout
-      if (Array.isArray(stillPlayer.hand) && stillPlayer.hand.length > 0) {
-        stillRoom.discard.push(...stillPlayer.hand);
-        stillPlayer.hand = [];
+      // If they were marked ready, clear their ready state and broadcast
+      if (room.ready && room.ready[socket.id]) {
+        room.ready[socket.id] = false;
+        broadcastReadyState(roomCode);
       }
 
-      io.to(roomCode).emit('info', `${player.name}'s cards have been returned to the discard pile after 2 minutes of disconnection.`);
-      updateRoom(roomCode);
-    }, 2 * 60 * 1000); // 2 minutes = 120,000 ms
-  }
+      // If a countdown is running and someone disconnected -> cancel
+      if (room._startCountdownHandle) {
+        cancelCountdown(roomCode, 'player_disconnected');
+      }
 
-  io.emit('roomList', getRoomList());
-});
+      // If it was their turn, skip them
+      const wasTheirTurn = room.order[room.turnIndex] === socket.id;
+      if (wasTheirTurn) {
+        io.to(roomCode).emit('info', `Skipping ${player.name}'s turn due to disconnection.`);
+        advanceTurn(roomCode);
+      }
+
+      // Schedule a 2-minute timeout to discard their hand if they don't return
+      setTimeout(() => {
+        const stillRoom = rooms[roomCode];
+        if (!stillRoom) return;
+
+        const stillPlayer = stillRoom.players[socket.id];
+        // If player either reconnected or is already gone, skip cleanup
+        if (!stillPlayer || !stillPlayer.disconnected) return;
+
+        // Discard their hand after timeout
+        if (Array.isArray(stillPlayer.hand) && stillPlayer.hand.length > 0) {
+          stillRoom.discard.push(...stillPlayer.hand);
+          stillPlayer.hand = [];
+        }
+
+        io.to(roomCode).emit('info', `${player.name}'s cards have been returned to the discard pile after 2 minutes of disconnection.`);
+        updateRoom(roomCode);
+      }, 2 * 60 * 1000); // 2 minutes = 120,000 ms
+    }
+
+    io.emit('roomList', getRoomList());
+  });
 });
 
 // Start server
