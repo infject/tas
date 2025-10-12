@@ -369,7 +369,6 @@ function startMatch(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
 
-  // sanity: check players
   const players = Object.values(room.players || {}).filter(p => p && !p.disconnected && p.alive !== false);
   const readyPlayers = players.filter(p => room.ready && room.ready[p.id]);
 
@@ -379,30 +378,29 @@ function startMatch(roomCode) {
     return;
   }
 
-  // announce dice (visual) rolling so clients can play animation/sfx
+  // 🎲 Step 1: tell clients to show dice animation
   io.to(roomCode).emit('diceRolling');
 
-  // Choose random player among readyPlayers as winner
-  const winner = readyPlayers[Math.floor(Math.random() * readyPlayers.length)];
-
-  // Compose pseudo-rolls object for clients to display (we'll assign random numbers only for show)
+  // 🎲 Step 2: generate fake dice results for fun
   const rolls = {};
   readyPlayers.forEach(p => {
-    rolls[p.id] = Math.floor(Math.random() * 6) + 1; // for UI flavor only
+    rolls[p.id] = Math.floor(Math.random() * 6) + 1;
   });
-  // but ensure winnerId is the chosen one
+
+  // Pick random winner (for turn order)
+  const winner = readyPlayers[Math.floor(Math.random() * readyPlayers.length)];
   const winnerId = winner.id;
 
-  // Broadcast results
+  // 🎲 Step 3: broadcast results
   io.to(roomCode).emit('diceResults', { rolls, winnerId });
+  console.log(`🎲 Dice rolled in ${roomCode}: winner ${winner.name}`);
 
-  // small delay so clients can show dice animation (matching client-side expectation)
+  // ✅ Step 4: after short delay, actually start game
   setTimeout(() => {
-    // Set turn order: rotate existing order so that winner is first
-    const orderedPlayers = (room.order && room.order.slice()) || (players.map(p => p.id));
-    let startIndex = orderedPlayers.indexOf(winnerId);
+    // Reorder players so winner goes first
+    const orderedPlayers = (room.order && room.order.slice()) || players.map(p => p.id);
+    const startIndex = orderedPlayers.indexOf(winnerId);
     if (startIndex === -1) {
-      // fallback: put winner first then append others
       const others = orderedPlayers.filter(id => id !== winnerId);
       room.order = [winnerId, ...others];
     } else {
@@ -413,24 +411,23 @@ function startMatch(roomCode) {
     room.waitingForStart = false;
     room.ready = {};
 
+    // ✅ Step 5: tell clients the game officially begins
     io.to(roomCode).emit('gameStarted', { firstPlayerId: winnerId, order: room.order });
+    console.log(`✅ Game started in ${roomCode} — first player: ${winner.name}`);
 
-    // If you have an existing startGame function, call it to deal initial state.
+    // Initialize game state
     if (typeof startGame === 'function') {
       startGame(roomCode, winnerId);
     } else {
-      // default behavior: give the first player a draw (we also ensure everyone has at least initial draw if they didn't)
       const first = room.players[winnerId];
       if (first) {
-        // ensure first player draws up to 4 (but respect MAX_HAND_SIZE)
         while ((first.hand || []).length < 4 && drawCard(room, winnerId, roomCode)) { /* draw until done */ }
       }
       io.to(roomCode).emit('info', `Game started. ${first ? first.name : winnerId} goes first.`);
     }
 
     updateRoom(roomCode);
-
-  }, 800); // 800ms for client animation
+  }, 2500); // <-- was 800 before, now 2500ms (2.5s)
 }
 
 // --- END: READY / COUNTDOWN / RANDOM STARTER SYSTEM ---
