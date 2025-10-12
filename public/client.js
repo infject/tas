@@ -530,10 +530,10 @@ function updateYourStats(your) {
   yourStatsDiv.innerHTML = `
     <h3>Your Stats</h3>
     <div>🧍 ${your.name}</div>
-    <div>🌀 Resonance: ${your.resonance}</div>
-    <div>❤️ Stability: ${your.stability}</div>
-    <div>🃏 Deck: ${deckSize} cards remain | Draw cost: ${DRAW_COST}🌀</div>
-    <div>🍷 Drinks: ${your.drinkCount || 0}</div>
+    <div>🌀 Resonance:${your.resonance}</div>
+    <div>❤️ Stability:${your.stability}</div>
+    <div>🃏 Deck:${deckSize}Cards remain Draw cost:${DRAW_COST}🌀</div>
+    <div>🍷 Drinks:${your.drinkCount || 0}</div>
   `;
 }
 
@@ -617,9 +617,9 @@ function renderOtherPlayers(players, turnId) {
     div.dataset.playerId = id;
     div.innerHTML = `
       ${id === turnId ? '<div style="color:lime; font-weight:bold;">Current Turn</div>' : ''}
-      <strong>${p.name}</strong>
-      <div>🌀 ${p.resonance} | ❤️ ${p.stability}</div>
-      <div>🍷 Drinks: ${p.drinkCount || 0}</div>
+   <strong>${p.name}</strong>
+<div>🌀${p.resonance}|❤️${p.stability}</div>
+<div>🍷Drinks:${p.drinkCount||0}</div>
     `;
     otherPlayersDiv.appendChild(div);
   });
