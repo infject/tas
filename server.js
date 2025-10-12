@@ -363,6 +363,11 @@ function cancelCountdown(roomCode, reason) {
   }
 }
 
+socket.on('readyState', ({ ready }) => {
+  if (!waitingForPlayers) return; // game already started, ignore
+  updateReadyDisplay(ready);
+});
+
 // startMatch: pick one random ready player as first player and start game
 function startMatch(roomCode) {
   const room = rooms[roomCode];
