@@ -1,18 +1,14 @@
-// === Resonance Duel - Merged Client (Old + New, full-featured)
-// This file merges the stable older client behaviors (room listing, simple UI
-// interactions, targeting logic) with the newer enhancements (audio, ready
-// system, countdown, dice visuals, better overlays). Drop this into your
-// public/ folder as client.js (or copy/paste) and ensure server emits the
-// expected events: 'roomList', 'readyState', 'countdownStarted', 'countdownCancelled',
-// 'diceRolling', 'diceResults', 'gameStarted', 'update', etc.
+// client.js - Final merged client (ready-to-paste)
+// Matches server events: roomList, readyState, countdownStarted, countdownCancelled,
+// diceRolling, diceResults, gameStarted, update, turnChanged, etc.
 
 /* global io */
 const socket = io();
 
 // --- Config ---
 const DRAW_COST = 1;
-const POTION_RESONANCE = 1;
 const COUNTDOWN_SECONDS_DEFAULT = 10;
+const DICE_ANIM_MS = 1400; // how long to show gif before showing result text (client-side)
 
 // --- Audio Assets ---
 const SFX_FILES = {
@@ -37,10 +33,10 @@ for (const [k, url] of Object.entries(SFX_FILES)) {
   try {
     const a = new Audio(url);
     a.preload = 'auto';
+    a.loop = false;
     if (k === 'bg') a.volume = 0.35; else a.volume = 0.7;
     sounds[k] = a;
   } catch (e) {
-    // Audio not available - keep code resilient
     sounds[k] = null;
   }
 }
@@ -61,7 +57,7 @@ function toggleMusic(forceOff = false) {
   }
 }
 
-// --- DOM Elements ---
+// --- DOM Elements (defensive) ---
 const rulesDiv = document.getElementById('rules');
 const startBtn = document.getElementById('startBtn');
 const lobbyDiv = document.getElementById('lobby');
@@ -88,41 +84,50 @@ const drawBtn = document.getElementById('drawBtn');
 const potionBtn = document.getElementById('potionBtn');
 const endTurnBtn = document.getElementById('endTurnBtn');
 
-// --- Overlay UI ---
-let overlayDiv = document.createElement('div');
-overlayDiv.id = "overlayDiv";
-overlayDiv.style.cssText = `
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.85);
-  color: white; font-size: 2em;
-  display: none; justify-content: center; align-items: center;
-  z-index: 2000; text-align: center;
-`;
-overlayDiv.innerHTML = `<div id="overlayText">Waiting...</div>`;
-document.body.appendChild(overlayDiv);
+// --- Overlay / message layer ---
+let overlayDiv = document.getElementById('overlayDiv');
+if (!overlayDiv) {
+  overlayDiv = document.createElement('div');
+  overlayDiv.id = "overlayDiv";
+  overlayDiv.style.cssText = 'position:fixed;inset:0;display:none;justify-content:center;align-items:center;background:rgba(0,0,0,0.85);color:#fff;font-size:2em;z-index:2000;text-align:center;';
+  overlayDiv.innerHTML = `
+    <div id="overlayInner" style="display:flex;flex-direction:column;gap:12px;align-items:center;">
+      <div id="overlayText">Waiting...</div>
+      <div id="overlayDiceContainer" style="display:none;align-items:center;gap:10px;">
+        <img id="overlayDiceGif" src="/assets/dice_roll.gif" alt="rolling" style="width:140px;height:140px;"/>
+        <div id="overlayDiceResults" style="font-size:0.7em;"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlayDiv);
+}
 const overlayText = document.getElementById('overlayText');
-function showOverlay(text) { overlayText.textContent = text || ''; overlayDiv.style.display = 'flex'; }
-function hideOverlay() { overlayDiv.style.display = 'none'; }
+const overlayDiceContainer = document.getElementById('overlayDiceContainer');
+const overlayDiceGif = document.getElementById('overlayDiceGif');
+const overlayDiceResults = document.getElementById('overlayDiceResults');
+
+function showOverlay(text='') {
+  try { if (overlayText) overlayText.textContent = text; overlayDiv.style.display = 'flex'; } catch(e){}
+}
+function hideOverlay() { try { overlayDiv.style.display = 'none'; overlayDiceContainer.style.display = 'none'; overlayText.style.display = 'block'; overlayDiceResults.innerHTML=''; } catch(e){} }
 
 // --- Message popup ---
-const messageDiv = document.createElement('div');
-messageDiv.id = "messageDiv";
-messageDiv.style.cssText = `
-  position:absolute; top:10px; left:50%; transform:translateX(-50%);
-  background:#222; color:#fff; padding:10px; border-radius:5px;
-  display:none; z-index:1000;
-`;
-document.body.appendChild(messageDiv);
-function showMessage(msg, duration = 3000) {
-  if (!messageDiv) return;
+let messageDiv = document.getElementById('messageDiv');
+if (!messageDiv) {
+  messageDiv = document.createElement('div');
+  messageDiv.id = 'messageDiv';
+  messageDiv.style.cssText = 'position:absolute;top:10px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px;border-radius:5px;display:none;z-index:3000;';
+  document.body.appendChild(messageDiv);
+}
+function showMessage(msg, dur=3000) {
   messageDiv.textContent = msg;
   messageDiv.style.display = 'block';
-  clearTimeout(showMessage._timeout);
-  showMessage._timeout = setTimeout(() => messageDiv.style.display = 'none', duration);
+  clearTimeout(showMessage._t);
+  showMessage._t = setTimeout(()=>messageDiv.style.display='none', dur);
 }
-function showToast(msg, d=2500){ showMessage(msg,d); }
+function showToast(msg, dur=2500){ showMessage(msg, dur); }
 
-// --- Mobile View Reset Helper ---
+// --- Mobile reset helper ---
 function resetMobileView() {
   if (window.innerWidth <= 768 && window.matchMedia("(orientation: portrait)").matches) {
     document.body.style.zoom = "100%";
@@ -132,50 +137,31 @@ function resetMobileView() {
     setTimeout(() => window.scrollTo(0, 0), 150);
   }
 }
-window.matchMedia("(orientation: portrait)").addEventListener("change", resetMobileView);
+try { window.matchMedia("(orientation: portrait)").addEventListener("change", resetMobileView); } catch(e){}
 
 // --- State ---
-let currentRoom = null;
-let selectedCard = null;
-let targeting = false;
 let mySocketId = null;
-let deckSize = 0;
+let currentRoom = null;
 let latestYourData = null;
 let latestOtherPlayers = {};
+let deckSize = 0;
 let waitingForPlayers = false;
 let gamePaused = false;
+let targeting = false;
+let selectedCard = null;
 let readyClicked = false;
 let countdownTimer = null;
 let countdownValue = COUNTDOWN_SECONDS_DEFAULT;
 
-// --- Helpers ---
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+// helpers
+const clamp = (n,a,b)=> Math.max(a, Math.min(b, n));
 
-// --- UI Lock/Unlock ---
-function disableGameControls() {
-  try { if (drawBtn) drawBtn.disabled = true; if (potionBtn) potionBtn.disabled = true; if (endTurnBtn) endTurnBtn.disabled = true; } catch(e){}
-  if (yourHandDiv) yourHandDiv.style.pointerEvents = 'none';
-}
-function enableGameControls() {
-  if (!latestYourData) return;
-  if (drawBtn) drawBtn.disabled = latestYourData.resonance < DRAW_COST;
-  if (potionBtn) potionBtn.disabled = latestYourData.potionCharges <= 0;
-  if (endTurnBtn) endTurnBtn.disabled = false;
-  yourHandDiv.style.pointerEvents = 'auto';
-}
-
-// --- Sounds on button press (play only after unlock) ---
-[startBtn, createBtn, joinBtn, drawBtn, potionBtn, endTurnBtn].forEach(btn => {
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    if (musicEnabled && sounds.click) sounds.click.play().catch(()=>{});
-  });
-});
-
-// --- Audio unlock on first user interaction ---
+// --- Audio unlock on first gesture (to satisfy mobile autoplay restrictions) ---
 function unlockAudioOnFirstGesture() {
   function onceUnlock() {
-    try { Object.values(sounds).forEach((a) => { try { a && a.play().then(()=>a.pause()).catch(()=>{}); } catch(e){} }); } catch(e){}
+    try {
+      Object.values(sounds).forEach(a => { try { a && a.play().then(()=>a.pause()).catch(()=>{}); } catch(e){} });
+    } catch(e){}
     document.removeEventListener('pointerdown', onceUnlock);
     document.removeEventListener('keydown', onceUnlock);
   }
@@ -184,71 +170,100 @@ function unlockAudioOnFirstGesture() {
 }
 unlockAudioOnFirstGesture();
 
-// --- Ready Button (constructed dynamically) ---
-const readyBtn = document.createElement('button');
-readyBtn.id = 'readyBtn';
-readyBtn.textContent = "I'm Ready!";
-readyBtn.style.cssText = 'margin-top:20px;padding:10px 20px;font-size:1.2em;';
-readyBtn.classList.add('hidden');
-if (lobbyDiv) lobbyDiv.appendChild(readyBtn);
+// --- Mute toggle button ---
+const muteBtn = document.createElement('button');
+muteBtn.textContent = '🔊 Mute';
+muteBtn.style.cssText = 'position:fixed;bottom:10px;right:10px;padding:6px 10px;z-index:3000;border-radius:6px;background:#222;color:#fff;border:none;';
+document.body.appendChild(muteBtn);
+muteBtn.onclick = () => {
+  if (musicEnabled) { toggleMusic(true); muteBtn.textContent = '🔈 Unmute'; }
+  else { toggleMusic(false); muteBtn.textContent = '🔊 Mute'; }
+};
 
-readyBtn.onclick = () => {
+// --- Ready Button ---
+let readyBtn = document.getElementById('readyBtn');
+if (!readyBtn) {
+  readyBtn = document.createElement('button');
+  readyBtn.id = 'readyBtn';
+  readyBtn.textContent = "I'm Ready!";
+  readyBtn.style.cssText = 'margin-top:12px;padding:10px 16px;font-size:1em;border-radius:6px;';
+  readyBtn.classList.add('hidden');
+  if (lobbyDiv) lobbyDiv.appendChild(readyBtn);
+}
+readyBtn.addEventListener('click', () => {
   if (readyClicked) return;
   readyClicked = true;
   socket.emit('toggleReady', currentRoom);
   readyBtn.textContent = 'Ready ✓';
   readyBtn.disabled = true;
-  if (musicEnabled && sounds.click) sounds.click.play().catch(()=>{});
-};
+  try { if (musicEnabled && sounds.click) sounds.click.play().catch(()=>{}); } catch(e){}
+});
 
-// === Buttons: UI -> socket emits ===
-if (startBtn) startBtn.onclick = () => {
+// --- Button hookup sounds + defensive toggles ---
+function disableGameControls() {
+  try { if (drawBtn) drawBtn.disabled = true; if (potionBtn) potionBtn.disabled = true; if (endTurnBtn) endTurnBtn.disabled = true; } catch(e){}
+  if (yourHandDiv) yourHandDiv.style.pointerEvents = 'none';
+}
+function enableGameControls() {
+  if (!latestYourData) return;
+  try { if (drawBtn) drawBtn.disabled = latestYourData.resonance < DRAW_COST; } catch(e){}
+  try { if (potionBtn) potionBtn.disabled = latestYourData.potionCharges <= 0; } catch(e){}
+  try { if (endTurnBtn) endTurnBtn.disabled = false; } catch(e){}
+  if (yourHandDiv) yourHandDiv.style.pointerEvents = 'auto';
+}
+
+// play click on primary UI buttons (if available)
+[startBtn, createBtn, joinBtn, drawBtn, potionBtn, endTurnBtn].forEach(btn => {
+  if (!btn) return;
+  btn.addEventListener('click', () => { try { if (musicEnabled && sounds.click) sounds.click.play().catch(()=>{}); } catch(e){} });
+});
+
+// --- UI: create/join/start/draw/potion/endTurn ---
+if (startBtn) startBtn.addEventListener('click', () => {
   rulesDiv && rulesDiv.classList.add('hidden');
   lobbyDiv && lobbyDiv.classList.remove('hidden');
-  if (musicEnabled && sounds.bg) try { sounds.bg.currentTime = 0; sounds.bg.play().catch(()=>{}); } catch(e){}
-};
+  try { if (musicEnabled && sounds.bg) { sounds.bg.currentTime = 0; sounds.bg.play().catch(()=>{}); } } catch(e){}
+});
 
-if (createBtn) createBtn.onclick = () => {
+if (createBtn) createBtn.addEventListener('click', () => {
   const code = roomCodeInput?.value.trim();
   const pass = passwordInput?.value.trim();
   const name = nameInput?.value.trim();
   if (!code || !name) return showMessage('Enter room code and name');
   socket.emit('createRoom', code, pass, name);
-};
+});
 
-if (joinBtn) joinBtn.onclick = () => {
+if (joinBtn) joinBtn.addEventListener('click', () => {
   const code = roomCodeInput?.value.trim();
   const pass = passwordInput?.value.trim();
   const name = nameInput?.value.trim();
   if (!code || !name) return showMessage('Enter room code and name');
   socket.emit('joinRoom', code, pass, name);
-};
+});
 
-if (drawBtn) drawBtn.onclick = () => {
+if (drawBtn) drawBtn.addEventListener('click', () => {
   if (!latestYourData || latestYourData.resonance < DRAW_COST) return showMessage(`Need ${DRAW_COST} resonance to draw`);
   socket.emit('drawCard', currentRoom);
-  if (musicEnabled && sounds.draw) sounds.draw.play().catch(()=>{});
-};
+  try { if (musicEnabled && sounds.draw) sounds.draw.play().catch(()=>{}); } catch(e){}
+});
 
-if (potionBtn) potionBtn.onclick = () => {
+if (potionBtn) potionBtn.addEventListener('click', () => {
   if (!latestYourData || latestYourData.potionCharges <= 0) return showMessage('No potion charges left!');
   socket.emit('drinkPotion', currentRoom);
-  if (musicEnabled && sounds.potion) sounds.potion.play().catch(()=>{});
-};
+  try { if (musicEnabled && sounds.potion) sounds.potion.play().catch(()=>{}); } catch(e){}
+});
 
-if (endTurnBtn) endTurnBtn.onclick = () => {
+if (endTurnBtn) endTurnBtn.addEventListener('click', () => {
   socket.emit('endTurn', currentRoom);
-  if (musicEnabled && sounds.click) sounds.click.play().catch(()=>{});
-};
+  try { if (musicEnabled && sounds.click) sounds.click.play().catch(()=>{}); } catch(e){}
+});
 
-// === Room List Refresh / Display ===
+// --- Room list renderer (server emits roomList) ---
 function normalizeRoomObject(r) {
-  // rooms might be strings (room codes) or objects {code, playerCount}
   if (typeof r === 'string') return { code: r, playerCount: undefined };
   if (!r) return { code: 'unknown', playerCount: undefined };
   return { code: r.code || r.roomCode || r.id || r.name || String(r), playerCount: r.playerCount || r.count || r.players || undefined };
 }
-
 function renderRoomList(rooms) {
   if (!roomListDiv) return;
   roomListDiv.innerHTML = '';
@@ -260,10 +275,10 @@ function renderRoomList(rooms) {
     const r = normalizeRoomObject(raw);
     const div = document.createElement('div');
     div.className = 'room-entry';
-    div.style.cssText = 'border:1px solid #fff; margin:5px; padding:6px; cursor:pointer;';
+    div.style.cssText = 'border:1px solid #fff;margin:6px;padding:8px;cursor:pointer;background:rgba(255,255,255,0.03);border-radius:6px;';
     div.textContent = r.playerCount !== undefined ? `${r.code} | Players: ${r.playerCount}` : `${r.code}`;
     div.onclick = () => {
-      roomCodeInput && (roomCodeInput.value = r.code);
+      if (roomCodeInput) roomCodeInput.value = r.code;
       const name = nameInput?.value.trim();
       const pass = passwordInput?.value.trim();
       if (!name) return showMessage('Enter your name first');
@@ -273,26 +288,19 @@ function renderRoomList(rooms) {
   });
 }
 
-function refreshRoomList() {
-  // ask server for rooms
-  socket.emit('getRooms');
-}
-
-// Request periodically and on connect
-setInterval(() => { try { refreshRoomList(); } catch(e){} }, 5000);
-
-// --- Socket events ---
+// --- Socket handlers ---
 socket.on('connect', () => {
   mySocketId = socket.id;
-  // initial fetch
-  try { refreshRoomList(); } catch(e){}
+  // server will emit roomList on connect if available
 });
 
-socket.on('errorMessage', showMessage);
-socket.on('info', showToast);
+// roomList
+socket.on('roomList', (rooms) => {
+  try { renderRoomList(rooms); } catch(e) { console.error(e); }
+});
 
+// generic room joined
 socket.on('roomJoined', (room) => {
-  // server might emit just the room code or a full room object
   currentRoom = typeof room === 'string' ? room : (room?.code || room?.roomCode || currentRoom);
   lobbyDiv && lobbyDiv.classList.add('hidden');
   gameDiv && gameDiv.classList.remove('hidden');
@@ -300,13 +308,12 @@ socket.on('roomJoined', (room) => {
   waitingForPlayers = true;
   disableGameControls();
   if (readyBtn) readyBtn.classList.remove('hidden');
+  // reset ready flag so user can ready again on reconnect
+  readyClicked = false;
+  if (readyBtn) { readyBtn.disabled = false; readyBtn.textContent = "I'm Ready!"; }
 });
 
-socket.on('roomList', (rooms) => {
-  try { renderRoomList(rooms); } catch(e){}
-});
-
-// READY / COUNTDOWN / DICE / START
+// ready state and countdown
 socket.on('readyState', (payload) => {
   const readyMap = payload && payload.ready ? payload.ready : payload || {};
   const entries = Object.entries(readyMap || {});
@@ -316,6 +323,7 @@ socket.on('readyState', (payload) => {
   disableGameControls();
 });
 
+// countdown start
 socket.on('countdownStarted', ({ endsAt, countdownMs } = {}) => {
   const now = Date.now();
   const secondsLeft = endsAt ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : (countdownMs ? Math.ceil(countdownMs / 1000) : COUNTDOWN_SECONDS_DEFAULT);
@@ -323,44 +331,74 @@ socket.on('countdownStarted', ({ endsAt, countdownMs } = {}) => {
   clearInterval(countdownTimer);
   overlayDiv.classList.add('countdown-active');
   showOverlay(`\u{1F3B2} Duel begins in ${countdownValue}s`);
-  if (musicEnabled && sounds.countdownStart) sounds.countdownStart.play().catch(()=>{});
+  try { if (musicEnabled && sounds.countdownStart) sounds.countdownStart.play().catch(()=>{}); } catch(e){}
   countdownTimer = setInterval(() => {
     countdownValue--;
     if (countdownValue <= 0) { clearInterval(countdownTimer); }
-    if (musicEnabled && sounds.countdownTick) sounds.countdownTick.play().catch(()=>{});
-    overlayText.textContent = `\u{1F3B2} Duel begins in ${Math.max(0, countdownValue)}s`;
+    try { if (musicEnabled && sounds.countdownTick) sounds.countdownTick.play().catch(()=>{}); } catch(e){}
+    if (overlayText) overlayText.textContent = `\u{1F3B2} Duel begins in ${Math.max(0, countdownValue)}s`;
   }, 1000);
 });
 
+// countdown cancelled
 socket.on('countdownCancelled', ({ reason } = {}) => {
   clearInterval(countdownTimer);
   overlayDiv.classList.remove('countdown-active');
   showOverlay('Countdown cancelled');
+  // allow players to re-ready
+  readyClicked = false;
+  if (readyBtn) { readyBtn.disabled = false; readyBtn.textContent = "I'm Ready!"; }
   setTimeout(() => { if (!waitingForPlayers) hideOverlay(); }, 1200);
 });
 
+// dice visuals
 socket.on('diceRolling', () => {
-  if (musicEnabled && sounds.dice) sounds.dice.play().catch(()=>{});
-  overlayDiv.classList.add('dice-rolling');
-  showOverlay('Rolling dice...');
+  // play dice sound and show gif
+  try { if (musicEnabled && sounds.dice) { sounds.dice.currentTime = 0; sounds.dice.play().catch(()=>{}); } } catch(e){}
+  overlayDiceContainer.style.display = 'flex';
+  overlayText.style.display = 'none';
+  overlayDiceResults.innerHTML = ''; // clear previous
+  showOverlay('');
 });
 
+// dice result - server supplies rolls object and winnerId
 socket.on('diceResults', ({ rolls, winnerId } = {}) => {
-  const winnerName = (winnerId && latestOtherPlayers[winnerId] && latestOtherPlayers[winnerId].name) || (winnerId === mySocketId ? (latestYourData && latestYourData.name) : null) || 'Player';
-  overlayDiv.classList.remove('dice-rolling');
-  overlayDiv.classList.add('dice-announce');
-  overlayText.textContent = `\u{1F3B2} ${winnerName} wins the roll!`;
+  // show gif briefly then show results text
+  setTimeout(() => {
+    overlayDiceContainer.style.display = 'flex';
+    overlayText.style.display = 'none';
+    // build simple results grid: player name -> roll
+    let html = '<div style="text-align:left;font-size:0.85em;">';
+    try {
+      if (rolls && typeof rolls === 'object') {
+        for (const [pid, val] of Object.entries(rolls)) {
+          const name = (latestOtherPlayers[pid] && latestOtherPlayers[pid].name) || (pid === mySocketId ? (latestYourData && latestYourData.name) : pid);
+          html += `<div style="margin-bottom:6px;"><strong>${name}</strong>: ${val}</div>`;
+        }
+      }
+    } catch(e){}
+    const winnerName = (winnerId && latestOtherPlayers[winnerId] && latestOtherPlayers[winnerId].name) || (winnerId === mySocketId ? (latestYourData && latestYourData.name) : 'Player');
+    html += `</div><div style="margin-top:8px;font-weight:bold;">\u{1F3B2} ${winnerName} wins the roll!</div>`;
+    overlayDiceResults.innerHTML = html;
+    overlayDiceContainer.style.display = 'flex';
+    overlayText.style.display = 'none';
+  }, DICE_ANIM_MS);
 });
 
+// game started - server will set turn order and call startGame or do default
 socket.on('gameStarted', ({ firstPlayerId, order } = {}) => {
-  if (musicEnabled && sounds.play) sounds.play.play().catch(()=>{});
+  // reset ready button
+  readyClicked = false;
+  if (readyBtn) { readyBtn.disabled = false; readyBtn.textContent = "I'm Ready!"; readyBtn.classList.add('hidden'); }
+
+  try { if (musicEnabled && sounds.play) sounds.play.play().catch(()=>{}); } catch(e){}
   overlayDiv.classList.remove('countdown-active', 'dice-announce', 'dice-rolling');
   hideOverlay();
   enableGameControls();
   waitingForPlayers = false;
 });
 
-// Generic update flow (game state)
+// update: per-player view emitted to each player
 socket.on('update', (data) => {
   if (!data || !data.yourData) return;
   latestYourData = data.yourData;
@@ -368,9 +406,13 @@ socket.on('update', (data) => {
   deckSize = data.deckSize || deckSize;
   const isMyTurn = data.turnId === socket.id;
 
+  // remove waiting overlay if enough players
   const totalPlayers = Object.keys(latestOtherPlayers).length + 1;
   if (totalPlayers >= 2 && waitingForPlayers) {
-    waitingForPlayers = false; hideOverlay(); gamePaused = false; enableGameControls();
+    waitingForPlayers = false;
+    hideOverlay();
+    gamePaused = false;
+    enableGameControls();
   }
 
   if (gamePaused) { disableGameControls(); return; }
@@ -384,45 +426,64 @@ socket.on('update', (data) => {
   cancelTargetingIfNeeded(isMyTurn);
 });
 
+// small info handlers
 socket.on('actionDenied', d => { if (d && d.reason) showToast(d.reason); });
-socket.on('hand_full', ({ msg }) => showToast(msg || "You can’t hold more than 6 cards."));
+socket.on('hand_full', ({ msg }) => showToast(msg || `You can’t hold more than 6 cards.`));
 socket.on('playerTargeted', ({ targetId, by, cardId }) => {
   const byName = latestOtherPlayers[by]?.name || "Someone";
   const targetName = latestOtherPlayers[targetId]?.name || (targetId === mySocketId ? (latestYourData?.name || 'You') : 'a player');
   showToast(`\u{1F300} ${byName} targeted ${targetName}!`);
 });
+socket.on('info', d => {
+  const msg = typeof d === 'string' ? d : (d && d.msg) ? d.msg : JSON.stringify(d);
+  showToast(msg, 3000);
+});
 
+// win/lose
 socket.on('you_win', () => {
-  gamePaused = true; showOverlay('\u{1F3C6} You Win! \u{1F3C6}');
-  if (musicEnabled && sounds.bg) sounds.bg.pause();
-  if (musicEnabled && sounds.win) sounds.win.play().catch(()=>{});
+  gamePaused = true;
+  showOverlay('\u{1F3C6} You Win! \u{1F3C6}');
+  try { if (musicEnabled && sounds.bg) sounds.bg.pause(); } catch(e){}
+  try { if (musicEnabled && sounds.win) sounds.win.play().catch(()=>{}); } catch(e){}
   disableGameControls();
 });
-
 socket.on('you_lose', () => {
-  gamePaused = true; showOverlay('\u{1F480} You Lose \u{1F480}');
-  if (musicEnabled && sounds.bg) sounds.bg.pause();
-  if (musicEnabled && sounds.lose) sounds.lose.play().catch(()=>{});
+  gamePaused = true;
+  showOverlay('\u{1F480} You Lose \u{1F480}');
+  try { if (musicEnabled && sounds.bg) sounds.bg.pause(); } catch(e){}
+  try { if (musicEnabled && sounds.lose) sounds.lose.play().catch(()=>{}); } catch(e){}
   disableGameControls();
 });
 
-// === UI Update Functions ===
+// turnChanged listener (server emits turnChanged after advanceTurn)
+socket.on('turnChanged', ({ currentTurnIndex, currentPlayerId } = {}) => {
+  updateTurnIndicator(currentPlayerId);
+});
+
+// --- UI helpers ---
 function updateTurnIndicator(turnId) {
   const name = (turnId === mySocketId) ? '⭐ Your Turn ⭐' : (latestOtherPlayers[turnId]?.name || 'Unknown');
-  turnIndicatorDiv && (turnIndicatorDiv.textContent = `Current Turn: ${name}`);
+  if (turnIndicatorDiv) turnIndicatorDiv.textContent = `Current Turn: ${name}`;
 }
 function updateButtons(isMyTurn) {
   if (waitingForPlayers || gamePaused) return disableGameControls();
-  if (drawBtn) drawBtn.disabled = !isMyTurn || latestYourData.resonance < DRAW_COST;
-  if (potionBtn) potionBtn.disabled = !isMyTurn || latestYourData.potionCharges <= 0;
-  if (endTurnBtn) endTurnBtn.disabled = !isMyTurn;
+  try { if (drawBtn) drawBtn.disabled = !isMyTurn || latestYourData.resonance < DRAW_COST; } catch(e){}
+  try { if (potionBtn) potionBtn.disabled = !isMyTurn || latestYourData.potionCharges <= 0; } catch(e){}
+  try { if (endTurnBtn) endTurnBtn.disabled = !isMyTurn; } catch(e){}
 }
 function updateYourStats(your) {
-  if (!yourStatsDiv) return;
-  yourStatsDiv.innerHTML = `\n    <h3>Your Stats</h3>\n    <div>🧍 ${your.name}</div>\n    <div>🌀 Resonance: ${your.resonance}</div>\n    <div>❤️ Stability: ${your.stability}</div>\n    <div>🃏 Deck: ${deckSize} cards remain | Draw cost: ${DRAW_COST}🌀</div>\n    <div>🍷 Drinks: ${your.drinkCount || 0}</div>\n  `;
+  if (!yourStatsDiv || !your) return;
+  yourStatsDiv.innerHTML = `
+    <h3>Your Stats</h3>
+    <div>🧍 ${your.name}</div>
+    <div>🌀 Resonance: ${your.resonance}</div>
+    <div>❤️ Stability: ${your.stability}</div>
+    <div>🃏 Deck: ${deckSize} cards remain | Draw cost: ${DRAW_COST}🌀</div>
+    <div>🍷 Drinks: ${your.drinkCount || 0}</div>
+  `;
 }
 
-// === Hand rendering ===
+// --- Hand rendering & interactions ---
 function renderHand(hand, isMyTurn) {
   if (!yourHandDiv) return;
   yourHandDiv.innerHTML = '';
@@ -433,8 +494,12 @@ function renderHand(hand, isMyTurn) {
     const cardDiv = document.createElement('div');
     cardDiv.className = 'card';
     cardDiv.tabIndex = 0;
-    cardDiv.innerHTML = `\n      <div class="type">${card.type}</div>\n      <h4>${card.name}</h4>\n      <p>${card.effect}</p>\n      <div class="resonance">Cost: ${card.cost}🌀</div>\n    `;
-    cardDiv.classList.add('card-anim');
+    cardDiv.innerHTML = `
+      <div class="type">${card.type}</div>
+      <h4>${card.name}</h4>
+      <p>${card.effect}</p>
+      <div class="resonance">Cost: ${card.cost}🌀</div>
+    `;
     cardDiv.style.animationDelay = (idx * 60) + 'ms';
     cardDiv.onclick = () => handleCardClick(card, isMyTurn);
     cardDiv.onpointerenter = () => cardDiv.classList.add('active-scale');
@@ -442,27 +507,23 @@ function renderHand(hand, isMyTurn) {
     yourHandDiv.appendChild(cardDiv);
   });
 
-  // Drag-scroll for hand (only once setup)
+  // drag-scroll (init once)
   if (!yourHandDiv._dragInit) {
     yourHandDiv._dragInit = true;
-    let isDown = false, startX = 0, scrollLeft = 0;
-    yourHandDiv.addEventListener('mousedown', e => {
-      isDown = true; yourHandDiv.classList.add('dragging'); startX = e.pageX - yourHandDiv.offsetLeft; scrollLeft = yourHandDiv.scrollLeft;
-    });
-    yourHandDiv.addEventListener('mouseleave', () => { isDown = false; yourHandDiv.classList.remove('dragging'); });
-    yourHandDiv.addEventListener('mouseup', () => { isDown = false; yourHandDiv.classList.remove('dragging'); });
-    yourHandDiv.addEventListener('mousemove', e => {
-      if (!isDown) return; e.preventDefault(); const x = e.pageX - yourHandDiv.offsetLeft; const walk = (x - startX) * 1.5; yourHandDiv.scrollLeft = scrollLeft - walk;
-    });
+    let isDown=false, startX=0, scrollLeft=0;
+    yourHandDiv.addEventListener('mousedown', e=>{ isDown=true; yourHandDiv.classList.add('dragging'); startX=e.pageX - yourHandDiv.offsetLeft; scrollLeft=yourHandDiv.scrollLeft; });
+    yourHandDiv.addEventListener('mouseleave', ()=>{ isDown=false; yourHandDiv.classList.remove('dragging'); });
+    yourHandDiv.addEventListener('mouseup', ()=>{ isDown=false; yourHandDiv.classList.remove('dragging'); });
+    yourHandDiv.addEventListener('mousemove', e=>{ if(!isDown) return; e.preventDefault(); const x = e.pageX - yourHandDiv.offsetLeft; const walk = (x - startX) * 1.5; yourHandDiv.scrollLeft = scrollLeft - walk; });
   }
 }
 
-// === Card click / targeting ===
 function handleCardClick(card, isMyTurn) {
   if (!isMyTurn) return showMessage('Not your turn!');
   if (waitingForPlayers || gamePaused) return showMessage('Game not active yet!');
+  if (!latestYourData) return showMessage('No player data');
   if (card.cost > latestYourData.resonance) return showMessage('Not enough resonance!');
-  if (musicEnabled && sounds.play) sounds.play.play().catch(()=>{});
+  try { if (musicEnabled && sounds.play) sounds.play.play().catch(()=>{}); } catch(e){}
 
   const targetRequired = [
     'Echo Drain', 'Layer Shift', 'Timeline Lock', 'Disarmonia Attack',
@@ -478,7 +539,7 @@ function handleCardClick(card, isMyTurn) {
   }
 }
 
-// === Table / history ===
+// --- Table / history ---
 function renderTable(table) {
   if (!historyContent) return;
   historyContent.innerHTML = '';
@@ -490,13 +551,9 @@ function renderTable(table) {
   });
 }
 
-if (historyBtn && closeHistoryBtn) {
-  historyBtn.onclick = () => { historyPanel.classList.toggle('hidden'); historyPanel.classList.toggle('visible'); };
-  closeHistoryBtn.onclick = () => { historyPanel.classList.add('hidden'); historyPanel.classList.remove('visible'); };
-}
-
-// === Other players display ===
+// --- Other players ---
 function renderOtherPlayers(players, turnId) {
+  if (!otherPlayersDiv) return;
   otherPlayersDiv.innerHTML = '';
   const playersCount = Object.keys(players || {}).length;
   if (playersCount > 4) otherPlayersDiv.classList.add('compact'); else otherPlayersDiv.classList.remove('compact');
@@ -504,19 +561,26 @@ function renderOtherPlayers(players, turnId) {
     const div = document.createElement('div');
     div.className = 'playerBox';
     div.dataset.playerId = id;
-    div.innerHTML = `\n      ${id === turnId ? '<div style="color:lime; font-weight:bold;">Current Turn</div>' : ''}\n      <strong>${p.name}</strong>\n      <div>🌀 ${p.resonance} | ❤️ ${p.stability}</div>\n      <div>🍷 Drinks: ${p.drinkCount || 0}</div>\n    `;
+    div.innerHTML = `
+      ${id === turnId ? '<div style="color:lime; font-weight:bold;">Current Turn</div>' : ''}
+      <strong>${p.name}</strong>
+      <div>🌀 ${p.resonance} | ❤️ ${p.stability}</div>
+      <div>🍷 Drinks: ${p.drinkCount || 0}</div>
+    `;
     otherPlayersDiv.appendChild(div);
   });
   if (targeting) enableTargeting();
 }
 
-// === Targeting helpers ===
+// --- Targeting helpers ---
 function enableTargeting() {
   document.querySelectorAll('.playerBox').forEach(div => {
-    const id = div.dataset.playerId; const p = latestOtherPlayers[id];
+    const id = div.dataset.playerId;
+    const p = latestOtherPlayers[id];
     if (!p || !p.alive) return;
     div.classList.add('targetable'); div.style.cursor = 'pointer';
     div.onclick = () => {
+      if (!selectedCard) return showMessage('No card selected');
       socket.emit('playCard', { roomCode: currentRoom, cardId: selectedCard.id, targetId: id });
       targeting = false; selectedCard = null; highlightTargets(false);
     };
@@ -537,19 +601,15 @@ function cancelTargetingIfNeeded(isMyTurn) {
     if (!stillHas) cancel = true;
   } else cancel = true;
   if (cancel) {
-    selectedCard = null; targeting = false; highlightTargets(false); showMessage('Targeting cancelled (turn changed or card unavailable).');
+    selectedCard = null; targeting = false; highlightTargets(false);
+    showMessage('Targeting cancelled (turn changed or card unavailable).');
   }
 }
 
-// === Mute toggle button ===
-const muteBtn = document.createElement('button');
-muteBtn.textContent = '🔊 Mute';
-muteBtn.style.cssText = 'position:fixed;bottom:10px;right:10px;padding:5px 10px;z-index:3000;';
-muteBtn.classList.add('mute-toggle');
-document.body.appendChild(muteBtn);
-muteBtn.onclick = () => {
-  if (musicEnabled) { toggleMusic(true); muteBtn.textContent = '🔈 Unmute'; }
-  else { toggleMusic(false); muteBtn.textContent = '🔊 Mute'; }
-};
+// --- History panel handlers ---
+if (historyBtn && historyPanel && closeHistoryBtn) {
+  historyBtn.onclick = () => { historyPanel.classList.toggle('hidden'); historyPanel.classList.toggle('visible'); };
+  closeHistoryBtn.onclick = () => { historyPanel.classList.add('hidden'); historyPanel.classList.remove('visible'); };
+}
 
-console.log('Resonance Duel client (merged) ready.');
+console.log('Resonance Duel client (final merged) ready.');
