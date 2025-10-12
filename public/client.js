@@ -354,7 +354,7 @@ socket.on('readyState', payload => {
   }
   document.getElementById('readyStatus').textContent = `Ready players: ${readyCount}/${total}`;
 });
-
+ 
 // countdown start
 socket.on('countdownStarted', ({ endsAt, countdownMs } = {}) => {
   const now = Date.now();
