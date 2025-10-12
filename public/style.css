@@ -39,6 +39,7 @@ h1, h2, h3 {
 }
 
 button {
+  font-family: 'Press Start 2P', cursive;
   margin: 3px;
   padding: 8px 14px;
   border-radius: 10px;
@@ -127,7 +128,7 @@ ul li::before {
   position: relative;
   cursor: pointer;
   transition: transform 0.35s cubic-bezier(.2,.8,.4,1), box-shadow 0.35s ease;
-  font-size: clamp(0.6em, 0.9vw, 0.85em);
+  font-size: clamp(0.75em, 0.9vw, 0.85em);
   color: #fff;
   z-index: 3;
 }
