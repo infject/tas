@@ -41,9 +41,9 @@ h1, h2, h3 {
 
 button {
   font-family: 'Press Start 2P', cursive;
-  font-size: 0.5em;
-  margin: 3px;
-  padding: 8px 14px;
+  font-size: 0.52em;
+  margin: -3px;
+  padding: 8px 9px;
   border-radius: 10px;
   border: none;
   background: #ffd633;
