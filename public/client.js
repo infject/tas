@@ -420,27 +420,31 @@ socket.on('diceResults', ({ rolls, winnerId } = {}) => {
 socket.on('gameStarted', ({ firstPlayerId, order } = {}) => {
   console.log('✅ Game started! First turn:', firstPlayerId);
 
-  // Hide all lobby and ready UI
-  if (overlayDiv) hideOverlay();
+  // Hide waiting/ready UI
+  const readyLobby = document.getElementById('readyLobby');
+  const readyPlayers = document.getElementById('readyPlayers');
+  const countdownDisplay = document.getElementById('countdownDisplay');
+  const diceRollArea = document.getElementById('diceRollArea');
+  const readyBtn = document.getElementById('readyBtn');
+
+  if (readyLobby) readyLobby.classList.add('hidden');
+  if (readyPlayers) readyPlayers.textContent = '';
+  if (countdownDisplay) countdownDisplay.textContent = '';
+  if (diceRollArea) diceRollArea.classList.add('hidden');
   if (readyBtn) readyBtn.classList.add('hidden');
 
-  // Hide any ready or countdown display
-  const readyCounter = document.getElementById('readyCounter');
-  const readyPanel = document.getElementById('readyPanel');
-  if (readyCounter) readyCounter.textContent = '';
-  if (readyPanel) readyPanel.classList.add('hidden');
+  // Show main game
+  const gameDiv = document.getElementById('game');
+  if (gameDiv) gameDiv.classList.remove('hidden');
 
-  // Switch to the main game view
-  lobbyDiv && lobbyDiv.classList.add('hidden');
-  gameDiv && gameDiv.classList.remove('hidden');
-
-  // Reset flags
+  // Reset internal state
   waitingForPlayers = false;
   readyClicked = false;
 
   enableGameControls();
   showToast('The duel begins!');
 });
+
 
 // update: per-player view emitted to each player
 socket.on('update', (data) => {
