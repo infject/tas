@@ -136,7 +136,7 @@ ul li::before {
 /* === CARD BACKGROUND TEXTURE === */
 .card {
   background-image: url('/assets/card_bg.png'); /* your actual file path */
-  background-size: cover;        /* ensures the image always fills the card area */
+  background-size: 220px;        /* ensures the image always fills the card area */
   background-position: center;   /* centers the image no matter card size */
   background-repeat: no-repeat;  /* prevents the texture from repeating */
   background-clip: border-box;   /* keeps it inside the rounded corners */
