@@ -420,19 +420,25 @@ socket.on('diceResults', ({ rolls, winnerId } = {}) => {
 socket.on('gameStarted', ({ firstPlayerId, order } = {}) => {
   console.log('✅ Game started! First turn:', firstPlayerId);
 
-  // Hide all lobby/overlay visuals
+  // Hide all lobby and ready UI
   if (overlayDiv) hideOverlay();
   if (readyBtn) readyBtn.classList.add('hidden');
 
-  // Switch to the game view
+  // Hide any ready or countdown display
+  const readyCounter = document.getElementById('readyCounter');
+  const readyPanel = document.getElementById('readyPanel');
+  if (readyCounter) readyCounter.textContent = '';
+  if (readyPanel) readyPanel.classList.add('hidden');
+
+  // Switch to the main game view
   lobbyDiv && lobbyDiv.classList.add('hidden');
   gameDiv && gameDiv.classList.remove('hidden');
 
-  // Reset flags and enable play controls
+  // Reset flags
   waitingForPlayers = false;
-  gamePaused = false;
-  enableGameControls();
+  readyClicked = false;
 
+  enableGameControls();
   showToast('The duel begins!');
 });
 
