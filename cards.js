@@ -318,7 +318,7 @@ const cards = [
   // 24
   {
     id: 24, name: "Temporal Collapse", type: "Event", cost: 5,
-    effect: "All -1 stability; all +2 resonance.",
+    effect: "loses 1 stability get +2 resonance.",
     action: (player, _, room) => {
       if (!room || !room.players) return;
       Object.values(room.players).forEach(p => {
@@ -423,7 +423,7 @@ const cards = [
   // 33
   {
     id: 33, name: "Void Torrent", type: "Spell", cost: 3,
-    effect: "Target -3 resonance; you -1 stability.",
+    effect: "Target -3 resonance you -1 stability.",
     action: (player, target) => {
       if (!target || target.id === player.id) return;
       applyResonance(target, -3);
@@ -647,7 +647,7 @@ const cards = [
   // 53
   {
     id: 53, name: "Resonant Shift", type: "Event", cost: 4,
-    effect: "Shuffle all resonance values among players.",
+    effect: "Everyone’s resonance gets mixed up randomly",
     action: (player, _, room) => {
       if (!room || !room.players) return;
       const players = Object.values(room.players);
@@ -722,6 +722,7 @@ module.exports = {
   applyStability,
   shuffle
 };
+
 
 
 
