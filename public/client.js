@@ -302,16 +302,38 @@ socket.on('roomList', (rooms) => {
 // generic room joined
 socket.on('roomJoined', (room) => {
   currentRoom = typeof room === 'string' ? room : (room?.code || room?.roomCode || currentRoom);
-  lobbyDiv && lobbyDiv.classList.add('hidden');
-  gameDiv && gameDiv.classList.remove('hidden');
+
+  // Hide the old screens
+  const lobbyDiv = document.getElementById('lobby');
+  const gameDiv = document.getElementById('game');
+  const readyLobbyDiv = document.getElementById('readyLobby');
+
+  if (lobbyDiv) lobbyDiv.classList.add('hidden');
+  if (gameDiv) gameDiv.classList.add('hidden');
+  
+  // Show the ready lobby instead of the game directly
+  if (readyLobbyDiv) readyLobbyDiv.classList.remove('hidden');
+
+  // Update ready lobby info
+  const roomLabel = document.getElementById('roomLabel');
+  if (roomLabel) roomLabel.textContent = `Room: ${currentRoom}`;
+
   showOverlay('Waiting for players...');
   waitingForPlayers = true;
   disableGameControls();
-  if (readyBtn) readyBtn.classList.remove('hidden');
-  // reset ready flag so user can ready again on reconnect
+
+  // Make sure ready button is visible and reset
+  const readyBtn = document.getElementById('readyBtn');
+  if (readyBtn) {
+    readyBtn.classList.remove('hidden');
+    readyBtn.disabled = false;
+    readyBtn.textContent = "I'm Ready!";
+  }
+
+  // Reset readiness flag
   readyClicked = false;
-  if (readyBtn) { readyBtn.disabled = false; readyBtn.textContent = "I'm Ready!"; }
 });
+
 
 // ready state and countdown
 socket.on('readyState', (payload) => {
