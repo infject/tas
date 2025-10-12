@@ -132,6 +132,28 @@ ul li::before {
   color: #fff;
   z-index: 3;
 }
+
+/* === CARD BACKGROUND TEXTURE === */
+.card {
+  background-image: url('/assets/card_bg.png'); /* your actual file path */
+  background-size: cover;        /* ensures the image always fills the card area */
+  background-position: center;   /* centers the image no matter card size */
+  background-repeat: no-repeat;  /* prevents the texture from repeating */
+  background-clip: border-box;   /* keeps it inside the rounded corners */
+  background-origin: border-box; /* aligns with the card border */
+  position: relative;            /* keep inner elements stable */
+  overflow: hidden;              /* ensures image doesn’t bleed past rounded edges */
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.25); /* adjust 0.25 for darker/lighter */
+  border-radius: inherit;
+  pointer-events: none; /* doesn’t block clicks */
+}
+
 .card:hover {
   transform: translateY(-20px) scale(1.15);
   box-shadow: 0 0 25px 6px rgba(255,214,51,0.6);
