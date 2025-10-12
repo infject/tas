@@ -517,7 +517,7 @@ socket.on('turnChanged', ({ currentTurnIndex, currentPlayerId } = {}) => {
 // --- UI helpers ---
 function updateTurnIndicator(turnId) {
   const name = (turnId === mySocketId) ? '⭐ Your Turn ⭐' : (latestOtherPlayers[turnId]?.name || 'Unknown');
-  if (turnIndicatorDiv) turnIndicatorDiv.textContent = `Current Turn: ${name}`;
+  if (turnIndicatorDiv) turnIndicatorDiv.textContent = `Current Turn:${name}`;
 }
 function updateButtons(isMyTurn) {
   if (waitingForPlayers || gamePaused) return disableGameControls();
