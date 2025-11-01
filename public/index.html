@@ -99,40 +99,49 @@
 </div>
 
 </div>
-<!-- Support button (place just before </body>) -->
-<div style="text-align:center;margin:16px 0;">
-  <button id="watchDonateZ17">Watch Ad To Donate</button>
+<!-- Watch-ad support button (paste before </body>) -->
+<div style="text-align:center;margin:20px 0;">
+  <button id="donateAdOmega">Watch Ad To Support</button>
+  <span id="donateMsgOmega" style="display:block;font-size:.9rem;color:#777;margin-top:6px;"></span>
 </div>
 
 <script>
-(function () {
-  var BTN_ID = 'watchDonateZ17';
-  var ZONE_ID = '3kav3zuvhk'; // your Adcash zone
-  var btn = document.getElementById(BTN_ID);
+(function(){
+  // ✅ Use an Adcash Interstitial/Video in-page zone (not popunder)
+  var ZONE_ID = '3kav3zuvhk';
+  var btn = document.getElementById('donateAdOmega');
+  var msg = document.getElementById('donateMsgOmega');
 
-  if (!btn) return;
-
-  function runAd() {
-    // If library already present, run immediately
-    if (window.aclib && typeof window.aclib.runAutoTag === 'function') {
-      window.aclib.runAutoTag({ zoneId: ZONE_ID });
-      return;
-    }
-    // Lazy-load Adcash library once, then run
-    if (!document.getElementById('aclib')) {
-      var s = document.createElement('script');
-      s.id = 'aclib';
-      s.src = 'https://acscdn.com/script/aclib.js';
-      s.onload = function () {
-        if (window.aclib && typeof window.aclib.runAutoTag === 'function') {
-          window.aclib.runAutoTag({ zoneId: ZONE_ID });
-        }
-      };
-      document.body.appendChild(s);
-    }
+  function libReady(){
+    return !!window.aclib && typeof window.aclib.runAutoTag === 'function';
   }
 
-  btn.addEventListener('click', runAd);
+  function loadLib(cb){
+    if (libReady()) { cb(); return; }
+    // If already added elsewhere, wait for it to become ready
+    var existing = document.getElementById('aclib');
+    if (existing){
+      var t = setInterval(function(){
+        if (libReady()){ clearInterval(t); cb(); }
+      }, 200);
+      return;
+    }
+    // Lazy-load Adcash library once
+    var s = document.createElement('script');
+    s.id = 'aclib';
+    s.src = 'https://acscdn.com/script/aclib.js';
+    s.onload = function(){ cb(); };
+    s.onerror = function(){ msg.textContent = 'Ad script blocked — please allow ads to support the game'; };
+    document.body.appendChild(s);
+  }
+
+  btn.addEventListener('click', function(){
+    msg.textContent = 'Thanks for supporting!';
+    loadLib(function(){
+      // This triggers the in-page interstitial overlay from your zone
+      window.aclib.runAutoTag({ zoneId: ZONE_ID });
+    });
+  });
 })();
 </script>
 </body>
