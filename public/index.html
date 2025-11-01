@@ -1,118 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="icon" href="/assets/favicon.png" type="image/png">
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Resonance Duel</title>
 
-  <!-- ✅ Correct way to load your stylesheet -->
+  <!-- ✅ Your stylesheet and scripts -->
   <link rel="stylesheet" href="/style.css">
   <script src="/socket.io/socket.io.js"></script>
   <script src="/client.js" defer></script>
   <link rel="stylesheet" href="style_mobile.css" media="(max-width: 768px) and (orientation: portrait)">
   <link rel="stylesheet" href="style_mobile.css" media="(max-width: 768px) and (orientation: portrait)">
-  <!-- You can add other head scripts/meta tags below if needed -->
 </head>
 <body>
 <div id="container">
 
-<!-- RULES -->
-<div id="rules" class="rules-screen">
-  <h1>🍻 Jack Jackson: Resonance Duel 🍻</h1>
-  <h2>How to Play</h2>
-  <p>
-    Welcome to <strong>Jack Jackson: Resonance Duel</strong> — a chaotic drinking card game
-    where mages clash through resonance and shots of real-life power.
-  </p>
-  <p>
- <button id="startBtn" class="start-button">Start the Duel</button>
- </p>
-  <ul>
-    <li>🎯 <strong>Goal:</strong> Reduce your opponent’s <span class="keyword">Stability (❤️)</span> to <strong>0</strong>!</li>
-    <li>🌀 <strong>Resonance (Energy):</strong> Magical power used to play cards.</li>
-    <li>❤️ <strong>Stability (Health):</strong> Lose it all, and you’re out of the duel.</li>
-    <li>🍺 <strong>Drink Potion:</strong> Take a real-life sip/shot → gain <strong>+1🌀Resonance</strong> in-game.</li>
-    <li>⚡ <strong>Overload:</strong> Too much drinking or resonance? You might lose control and the game!</li>
-    <li>👥 <strong>Multiplayer:</strong> Join or create a room with a code and password to duel your friends online.</li>
-    <li>🔥 <strong>Turn System:</strong> Play cards strategically to drain your opponent’s Stability or protect your own.</li>
-  </ul>
+  <!-- RULES -->
+  <div id="rules" class="rules-screen">
+    <h1>🍻 Jack Jackson: Resonance Duel 🍻</h1>
+    <h2>How to Play</h2>
+    <p>
+      Welcome to <strong>Jack Jackson: Resonance Duel</strong> — a chaotic drinking card game
+      where mages clash through resonance and shots of real-life power.
+    </p>
+    <p>
+      <button id="startBtn" class="start-button">Start the Duel</button>
+    </p>
+    <ul>
+      <li>🎯 <strong>Goal:</strong> Reduce your opponent’s <span class="keyword">Stability (❤️)</span> to <strong>0</strong>!</li>
+      <li>🌀 <strong>Resonance (Energy):</strong> Magical power used to play cards.</li>
+      <li>❤️ <strong>Stability (Health):</strong> Lose it all, and you’re out of the duel.</li>
+      <li>🍺 <strong>Drink Potion:</strong> Take a real-life sip/shot → gain <strong>+1🌀Resonance</strong> in-game.</li>
+      <li>⚡ <strong>Overload:</strong> Too much drinking or resonance? You might lose control and the game!</li>
+      <li>👥 <strong>Multiplayer:</strong> Join or create a room with a code and password to duel your friends online.</li>
+      <li>🔥 <strong>Turn System:</strong> Play cards strategically to drain your opponent’s Stability or protect your own.</li>
+    </ul>
 
-  <p class="note">
-    <strong>Remember:</strong> This is a drinking game. Drink responsibly. Know your limits. Hydrate. 💧
-  </p>
+    <p class="note">
+      <strong>Remember:</strong> This is a drinking game. Drink responsibly. Know your limits. Hydrate. 💧
+    </p>
 
-  <!-- 🔹 Added: Donate-by-ads panel -->
-  <div class="donate-wrap" id="adPanel">
-    <h3>Support The Game</h3>
-    <div class="row">
-      <button id="startAuto" class="btn">Start ads</button>
-      <button id="stopAuto" class="btn" style="display:none">Stop ads</button>
-      <button id="nextAd" class="btn" style="display:none">Next ad</button>
-    </div>
-    <div class="note" id="adMsg" aria-live="polite">Click Start ads to donate by watching ads</div>
-    <div class="note">Ads this session: <span class="count" id="adCount">0</span></div>
-  </div>
-  <!-- 🔹 /Added -->
- 
-</div>
-
-<!-- LOBBY -->
-<div id="lobby" class="hidden">
-  <h2>Lobby</h2>
-  <input id="roomCodeInput" placeholder="Room Code">
-  <input id="passwordInput" type="password" placeholder="Password">
-  <input id="nameInput" placeholder="Your Name"><br>
-  <button id="createBtn">Create Room</button>
-  <button id="joinBtn">Join Room</button>
-  <h3>Available Rooms</h3>
-  <div id="roomList"></div>
-</div>
-
-<!-- READY LOBBY -->
-<div id="readyLobby" class="hidden">
-  <h2>Waiting Room</h2>
-  <p id="roomLabel"></p>
-  <div id="readyPlayers"></div>
-
-  <button id="readyBtn" class="ready-button">I'm Ready!</button>
-  <div id="countdownDisplay"></div>
-  <div id="diceRollArea" class="hidden">
-    <img id="diceGif" src="/assets/dice_roll.gif" alt="Rolling Dice..." width="120">
-  </div>
-</div>
-  
-<!-- GAME -->
-<div id="game" class="hidden">
-  <div class="game-scroll">
-  <div id="turnIndicator">Current Turn: --</div>
-  <div class="hud" id="yourStats"></div>
-  <div id="yourHand"></div>
-  <div id="tableArea" style="display:none;"></div>
-  <div id="historyPanel" class="history-panel hidden">
-    <div class="history-inner">
-      <div class="history-header">
-        <h3>Game History</h3>
-        <button id="closeHistoryBtn">Close</button>
+    <!-- 🔹 Donate-by-ads panel (no startBtn vars used here) -->
+    <div class="donate-wrap" id="adPanel">
+      <h3>Support The Game</h3>
+      <div class="row">
+        <button id="adStartAuto" class="btn">Start ads</button>
+        <button id="adStopAuto" class="btn" style="display:none">Stop ads</button>
+        <button id="adNext" class="btn" style="display:none">Next ad</button>
       </div>
-      <div id="historyContent" class="history-content"></div>
+      <div class="note" id="adMsg" aria-live="polite">Click Start ads to donate by watching ads</div>
+      <div class="note">Ads this session: <span class="count" id="adCount">0</span></div>
+    </div>
+    <!-- 🔹 /Donate-by-ads -->
+  </div>
+
+  <!-- LOBBY -->
+  <div id="lobby" class="hidden">
+    <h2>Lobby</h2>
+    <input id="roomCodeInput" placeholder="Room Code">
+    <input id="passwordInput" type="password" placeholder="Password">
+    <input id="nameInput" placeholder="Your Name"><br>
+    <button id="createBtn">Create Room</button>
+    <button id="joinBtn">Join Room</button>
+    <h3>Available Rooms</h3>
+    <div id="roomList"></div>
+  </div>
+
+  <!-- READY LOBBY -->
+  <div id="readyLobby" class="hidden">
+    <h2>Waiting Room</h2>
+    <p id="roomLabel"></p>
+    <div id="readyPlayers"></div>
+    <button id="readyBtn" class="ready-button">I'm Ready!</button>
+    <div id="countdownDisplay"></div>
+    <div id="diceRollArea" class="hidden">
+      <img id="diceGif" src="/assets/dice_roll.gif" alt="Rolling Dice..." width="120">
     </div>
   </div>
-  <div id="otherPlayers"></div>
-  <div id="controls">
-    <button id="drawBtn">Draw Card</button>
-    <button id="historyBtn">History</button>
-    <div class="tooltip"><button id="potionBtn">Drink Potion</button>
-      <span class="tooltiptext">Take a real-life shot to gain 1 Resonance</span>
+    
+  <!-- GAME -->
+  <div id="game" class="hidden">
+    <div class="game-scroll">
+      <div id="turnIndicator">Current Turn: --</div>
+      <div class="hud" id="yourStats"></div>
+      <div id="yourHand"></div>
+      <div id="tableArea" style="display:none;"></div>
+      <div id="historyPanel" class="history-panel hidden">
+        <div class="history-inner">
+          <div class="history-header">
+            <h3>Game History</h3>
+            <button id="closeHistoryBtn">Close</button>
+          </div>
+          <div id="historyContent" class="history-content"></div>
+        </div>
+      </div>
+      <div id="otherPlayers"></div>
+      <div id="controls">
+        <button id="drawBtn">Draw Card</button>
+        <button id="historyBtn">History</button>
+        <div class="tooltip"><button id="potionBtn">Drink Potion</button>
+          <span class="tooltiptext">Take a real-life shot to gain 1 Resonance</span>
+        </div>
+        <button id="endTurnBtn">End Turn</button>
+      </div>
     </div>
-    <button id="endTurnBtn">End Turn</button>
   </div>
-</div>
 
 </div>
 
-<!-- 🔹 Added styles for the donate panel -->
+<!-- 🔹 Styles for the donate panel -->
 <style>
   .donate-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem;margin:1rem 0}
   .row{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
@@ -123,58 +121,60 @@
 </style>
 
 <!-- 🔹 Adcash library (load once per page) -->
-<script id="aclib" type="text/javascript" src="https://acscdn.com/script/aclib.js"></script>
+<script id="aclib" type="text/javascript" src="https://acscdn.com/script/aclib.js" async></script>
 
-<!-- 🔹 Donate-by-ads logic -->
+<!-- 🔹 Donate-by-ads logic wrapped in an IIFE (no globals named startBtn) -->
 <script>
-  // Use your Adcash interstitial/video zone(s). You can add more IDs to rotate.
-  const ZONE_IDS = ['3kav3zuvhk']; // <-- your zone ID here
-  const AUTO_INTERVAL_MS = 15000;      // interval between ads while running
-  const MAX_ADS_PER_SESSION = 20;      // safety cap per session
+(() => {
+  // Use your Adcash interstitial/video zone(s)
+  const ZONE_IDS = ['3kav3zuvhk'];    // add more zone IDs to rotate if you have them
+  const AUTO_INTERVAL_MS = 15000;     // interval between ads while running
+  const MAX_ADS_PER_SESSION = 20;     // safety cap per session
 
+  // Elements (unique IDs to avoid any collision with client.js)
+  const startAutoBtn = document.getElementById('adStartAuto');
+  const stopAutoBtn  = document.getElementById('adStopAuto');
+  const nextBtn      = document.getElementById('adNext');
+  const msgEl        = document.getElementById('adMsg');
+  const countEl      = document.getElementById('adCount');
+
+  if (!startAutoBtn) return; // panel not present
+
+  // State
   let running = false;
-  let adCount = 0;
+  let shown = 0;
   let timerId = null;
   let zoneIndex = 0;
 
-  const $ = (id) => document.getElementById(id);
-  const startBtn = $('startAuto');
-  const stopBtn  = $('stopAuto');
-  const nextBtn  = $('nextAd');
-  const msg      = $('adMsg');
-  const cnt      = $('adCount');
-
-  function say(t){ msg.textContent = t }
-  function nextZoneId(){
-    const id = ZONE_IDS[zoneIndex % ZONE_IDS.length];
-    zoneIndex++;
-    return id;
-  }
+  const say = (t) => { msgEl.textContent = t };
+  const libReady = () => !!window.aclib && typeof window.aclib.runAutoTag === 'function';
+  const nextZone = () => ZONE_IDS[zoneIndex++ % ZONE_IDS.length];
 
   function runOneAd(){
-    if(!window.aclib){
-      say('Ad library blocked or not loaded — please disable ad blocker and try again');
+    if (!libReady()){
+      say('Ads blocked or library not loaded — allow acscdn com or disable ad blocker');
+      stopAuto();
       return false;
     }
-    // User-initiated ad call
-    aclib.runAutoTag({ zoneId: nextZoneId() });
-    adCount++;
-    cnt.textContent = adCount;
+    window.aclib.runAutoTag({ zoneId: nextZone() });
+    shown++;
+    countEl.textContent = String(shown);
     return true;
-  }
+    }
 
   function startAuto(){
-    if(running) return;
+    if (running) return;
     running = true;
-    startBtn.style.display = 'none';
-    stopBtn.style.display  = 'inline-block';
-    nextBtn.style.display  = 'inline-block';
+    startAutoBtn.style.display = 'none';
+    stopAutoBtn.style.display  = 'inline-block';
+    nextBtn.style.display      = 'inline-block';
     say('Ads are running — click Stop ads anytime');
-    runOneAd(); // first ad immediately
 
-    timerId = setInterval(()=>{
-      if(!running) return;
-      if(adCount >= MAX_ADS_PER_SESSION){
+    runOneAd();
+
+    timerId = setInterval(() => {
+      if (!running) return;
+      if (shown >= MAX_ADS_PER_SESSION){
         say('Session limit reached — thanks for the support');
         stopAuto();
         return;
@@ -185,31 +185,35 @@
 
   function stopAuto(){
     running = false;
-    if(timerId){ clearInterval(timerId); timerId = null; }
-    startBtn.style.display = 'inline-block';
-    stopBtn.style.display  = 'none';
-    nextBtn.style.display  = 'inline-block'; // manual “Next ad” still available
+    if (timerId){ clearInterval(timerId); timerId = null; }
+    startAutoBtn.style.display = 'inline-block';
+    stopAutoBtn.style.display  = 'none';
+    nextBtn.style.display      = 'inline-block';
     say('Stopped — you can resume or use Next ad anytime');
   }
 
   function manualNext(){
-    if(adCount >= MAX_ADS_PER_SESSION){
-      say('Session limit reached — start a new session later');
+    if (shown >= MAX_ADS_PER_SESSION){
+      say('Session limit reached — start again later');
       return;
     }
     runOneAd();
   }
 
-  // Pause if the tab is hidden (prevents background runs)
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden && running) stopAuto();
+  // Pause if tab is hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && running) stopAuto();
   });
 
-  startBtn.addEventListener('click', startAuto);
-  stopBtn .addEventListener('click', stopAuto);
-  nextBtn .addEventListener('click', manualNext);
+  startAutoBtn.addEventListener('click', startAuto);
+  stopAutoBtn .addEventListener('click', stopAuto);
+  nextBtn     .addEventListener('click', manualNext);
+
+  // Gentle warning if the ad script is blocked
+  setTimeout(() => { if (!libReady()) say('Ads blocked — please allow ads on this page to support the game') }, 1200);
+})();
 </script>
-<!-- 🔹 /Donate-by-ads -->
 
 </body>
 </html>
+
