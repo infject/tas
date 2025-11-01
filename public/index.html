@@ -144,5 +144,23 @@
   });
 })();
 </script>
+
+  <script>
+document.addEventListener('DOMContentLoaded', function () {
+  var start = document.getElementById('startBtn');
+  // your ad button id (supports either of the ones we used earlier)
+  var adBtn = document.getElementById('donateAdOmega') || document.getElementById('watchDonateZ17');
+
+  if (start && adBtn) {
+    start.addEventListener('click', function () {
+      // hide the whole wrapper if possible, otherwise just the button
+      var wrap = adBtn.parentElement;
+      if (wrap) { wrap.style.display = 'none'; }
+      else { adBtn.style.display = 'none'; }
+    }, { once: true });
+  }
+});
+</script>
+  
 </body>
 </html>
