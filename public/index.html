@@ -43,6 +43,18 @@
     <strong>Remember:</strong> This is a drinking game. Drink responsibly. Know your limits. Hydrate. 💧
   </p>
 
+  <!-- 🔹 Added: Donate-by-ads panel -->
+  <div class="donate-wrap" id="adPanel">
+    <h3>Support The Game</h3>
+    <div class="row">
+      <button id="startAuto" class="btn">Start ads</button>
+      <button id="stopAuto" class="btn" style="display:none">Stop ads</button>
+      <button id="nextAd" class="btn" style="display:none">Next ad</button>
+    </div>
+    <div class="note" id="adMsg" aria-live="polite">Click Start ads to donate by watching ads</div>
+    <div class="note">Ads this session: <span class="count" id="adCount">0</span></div>
+  </div>
+  <!-- 🔹 /Added -->
  
 </div>
 
@@ -99,6 +111,105 @@
 </div>
 
 </div>
+
+<!-- 🔹 Added styles for the donate panel -->
+<style>
+  .donate-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem;margin:1rem 0}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
+  .btn{padding:.75rem 1rem;border:0;border-radius:10px;font-weight:700;cursor:pointer}
+  .btn[disabled]{opacity:.6;cursor:not-allowed}
+  .note{font-size:.92rem;color:#555;text-align:center;max-width:32rem}
+  .count{font-weight:700}
+</style>
+
+<!-- 🔹 Adcash library (load once per page) -->
+<script id="aclib" type="text/javascript" src="https://acscdn.com/script/aclib.js"></script>
+
+<!-- 🔹 Donate-by-ads logic -->
+<script>
+  // Use your Adcash interstitial/video zone(s). You can add more IDs to rotate.
+  const ZONE_IDS = ['3kav3zuvhk']; // <-- your zone ID here
+  const AUTO_INTERVAL_MS = 15000;      // interval between ads while running
+  const MAX_ADS_PER_SESSION = 20;      // safety cap per session
+
+  let running = false;
+  let adCount = 0;
+  let timerId = null;
+  let zoneIndex = 0;
+
+  const $ = (id) => document.getElementById(id);
+  const startBtn = $('startAuto');
+  const stopBtn  = $('stopAuto');
+  const nextBtn  = $('nextAd');
+  const msg      = $('adMsg');
+  const cnt      = $('adCount');
+
+  function say(t){ msg.textContent = t }
+  function nextZoneId(){
+    const id = ZONE_IDS[zoneIndex % ZONE_IDS.length];
+    zoneIndex++;
+    return id;
+  }
+
+  function runOneAd(){
+    if(!window.aclib){
+      say('Ad library blocked or not loaded — please disable ad blocker and try again');
+      return false;
+    }
+    // User-initiated ad call
+    aclib.runAutoTag({ zoneId: nextZoneId() });
+    adCount++;
+    cnt.textContent = adCount;
+    return true;
+  }
+
+  function startAuto(){
+    if(running) return;
+    running = true;
+    startBtn.style.display = 'none';
+    stopBtn.style.display  = 'inline-block';
+    nextBtn.style.display  = 'inline-block';
+    say('Ads are running — click Stop ads anytime');
+    runOneAd(); // first ad immediately
+
+    timerId = setInterval(()=>{
+      if(!running) return;
+      if(adCount >= MAX_ADS_PER_SESSION){
+        say('Session limit reached — thanks for the support');
+        stopAuto();
+        return;
+      }
+      runOneAd();
+    }, AUTO_INTERVAL_MS);
+  }
+
+  function stopAuto(){
+    running = false;
+    if(timerId){ clearInterval(timerId); timerId = null; }
+    startBtn.style.display = 'inline-block';
+    stopBtn.style.display  = 'none';
+    nextBtn.style.display  = 'inline-block'; // manual “Next ad” still available
+    say('Stopped — you can resume or use Next ad anytime');
+  }
+
+  function manualNext(){
+    if(adCount >= MAX_ADS_PER_SESSION){
+      say('Session limit reached — start a new session later');
+      return;
+    }
+    runOneAd();
+  }
+
+  // Pause if the tab is hidden (prevents background runs)
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden && running) stopAuto();
+  });
+
+  startBtn.addEventListener('click', startAuto);
+  stopBtn .addEventListener('click', stopAuto);
+  nextBtn .addEventListener('click', manualNext);
+</script>
+<!-- 🔹 /Donate-by-ads -->
 
 </body>
 </html>
